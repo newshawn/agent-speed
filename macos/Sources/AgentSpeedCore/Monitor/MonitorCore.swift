@@ -10,6 +10,10 @@ final class MonitorCore: RemoteFeedSink, @unchecked Sendable {
     static let publishInterval: DispatchTimeInterval = .milliseconds(500)
     static let pollInterval: DispatchTimeInterval = .seconds(1)
     static let rediscoveryInterval: DispatchTimeInterval = .seconds(10)
+    static let idlePublishInterval: DispatchTimeInterval = .seconds(2)
+    static let idlePollInterval: DispatchTimeInterval = .seconds(3)
+    static let idleRediscoveryInterval: DispatchTimeInterval = .seconds(30)
+    static let idleBackoffAfterMs: Int64 = 10_000
     static let changeDebounce: DispatchTimeInterval = .milliseconds(80)
     static let watcherLatency: TimeInterval = 0.1
 
@@ -39,6 +43,8 @@ final class MonitorCore: RemoteFeedSink, @unchecked Sendable {
     private var watchedPaths: [String] = []
     private var timers: [DispatchSourceTimer] = []
     private var isLive = false
+    private var isIdleCadence = false
+    private var lastActiveMs: Int64 = 0
     private var dirtyPaths: Set<String> = []
     private var needsRescan = false
     private var flushScheduled = false
@@ -170,12 +176,9 @@ final class MonitorCore: RemoteFeedSink, @unchecked Sendable {
             subsets: subsets.withLock { $0 }
         )
         isLive = true
+        lastActiveMs = Clock.monotonicMs()
         updateWatcher()
-        timers = [
-            makeTimer(every: Self.publishInterval, leeway: .milliseconds(50)) { [weak self] in self?.publish() },
-            makeTimer(every: Self.pollInterval, leeway: .milliseconds(100)) { [weak self] in self?.poll() },
-            makeTimer(every: rediscoveryEvery, leeway: .seconds(1)) { [weak self] in self?.rediscover() },
-        ]
+        scheduleLiveTimers(idle: false)
         publish()
     }
 
@@ -194,12 +197,15 @@ final class MonitorCore: RemoteFeedSink, @unchecked Sendable {
         watchedPaths = []
         session = nil
         isLive = false
+        isIdleCadence = false
     }
 
     // MARK: - Change handling
 
     private func handle(_ events: [DirectoryWatcher.Event]) {
         guard isLive else { return }
+        lastActiveMs = Clock.monotonicMs()
+        if isIdleCadence { setIdleCadence(false) }
         for event in events {
             if event.needsRescan {
                 needsRescan = true
@@ -285,6 +291,8 @@ final class MonitorCore: RemoteFeedSink, @unchecked Sendable {
         guard let session, isLive else { return }
         let began = Clock.monotonicMs()
         guard session.applyRemote(changes) else { return }
+        lastActiveMs = began
+        if isIdleCadence { setIdleCadence(false) }
         observe(began)
         guard !remotePublishScheduled else { return }
         remotePublishScheduled = true
@@ -311,9 +319,44 @@ final class MonitorCore: RemoteFeedSink, @unchecked Sendable {
         )
         let context = SnapshotContext(session: session, todayStartMs: todayStartMs)
         var snapshot = SnapshotBuilder.running(output, context: context)
+        let hadObservation = observedAtMs != nil
         snapshot.observedAtMs = observedAtMs
         observedAtMs = nil
         mailbox.post(snapshot, events: events)
+        updateIdleCadence(active: hadObservation || output.live.total > 0 || output.agents.contains { $0.phase != .idle })
+    }
+
+    private func updateIdleCadence(active: Bool) {
+        let now = Clock.monotonicMs()
+        if active {
+            lastActiveMs = now
+            if isIdleCadence { setIdleCadence(false) }
+        } else if !isIdleCadence, now - lastActiveMs >= Self.idleBackoffAfterMs {
+            setIdleCadence(true)
+            malloc_zone_pressure_relief(nil, 0)
+        }
+    }
+
+    private func setIdleCadence(_ idle: Bool) {
+        guard idle != isIdleCadence, isLive else { return }
+        scheduleLiveTimers(idle: idle)
+    }
+
+    private func scheduleLiveTimers(idle: Bool) {
+        cancelTimers()
+        isIdleCadence = idle
+        let publishEvery = idle ? Self.idlePublishInterval : Self.publishInterval
+        let publishLeeway: DispatchTimeInterval = idle ? .milliseconds(400) : .milliseconds(50)
+        let pollEvery = idle ? Self.idlePollInterval : Self.pollInterval
+        let pollLeeway: DispatchTimeInterval = idle ? .milliseconds(500) : .milliseconds(100)
+        let usesDefaultRediscovery = rediscoveryEvery == Self.rediscoveryInterval
+        let rediscoverEvery = (idle && usesDefaultRediscovery) ? Self.idleRediscoveryInterval : rediscoveryEvery
+        let rediscoverLeeway: DispatchTimeInterval = (idle && usesDefaultRediscovery) ? .seconds(5) : .seconds(1)
+        timers = [
+            makeTimer(every: publishEvery, leeway: publishLeeway) { [weak self] in self?.publish() },
+            makeTimer(every: pollEvery, leeway: pollLeeway) { [weak self] in self?.poll() },
+            makeTimer(every: rediscoverEvery, leeway: rediscoverLeeway) { [weak self] in self?.rediscover() },
+        ]
     }
 
     private func publishPlaceholder(_ state: MonitorState, session: TranscriptSession) {

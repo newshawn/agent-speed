@@ -59,7 +59,7 @@ final class OrbCanvasView: NSView, OrbFrameClient {
         layer.framebufferOnly = true
         layer.isOpaque = false
         layer.colorspace = CGColorSpace(name: CGColorSpace.sRGB)
-        layer.maximumDrawableCount = 3
+        layer.maximumDrawableCount = 2
         layer.displaySyncEnabled = presentsInSync
         layer.allowsNextDrawableTimeout = true
         return layer
@@ -93,6 +93,7 @@ final class OrbCanvasView: NSView, OrbFrameClient {
             setNeedsFrame()
         } else {
             OrbFrameClock.shared.unregister(self)
+            encoder?.releaseTransientResources()
         }
     }
 

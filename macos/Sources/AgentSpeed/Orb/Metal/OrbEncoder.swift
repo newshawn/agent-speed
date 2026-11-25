@@ -33,6 +33,12 @@ final class OrbEncoder {
         buffers = Array(repeating: nil, count: Self.ringSize)
     }
 
+    /// Drops transient offscreen render targets when the hosting surface is hidden or torn down.
+    func releaseTransientResources() {
+        silkTexture = nil
+        silkSide = 0
+    }
+
     /// GPU time of completed frames, for benchmarks.
     let gpuTime = OrbGPUTimer()
 

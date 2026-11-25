@@ -1,4 +1,5 @@
 import AppKit
+import Darwin
 import SwiftUI
 
 /// Hosts the dashboard in a transient popover anchored to the status item.
@@ -45,11 +46,13 @@ final class DashboardController: NSObject, NSPopoverDelegate {
         // size, and stays pinned to the top, so a window a point off never squeezes, shifts or re-centres it.
         let cards = DashboardScoreCards(model: model)
         scoreCards = cards
-        let root = DashboardView(model: model, maxHeight: Self.maxHeight(below: view))
-            .fixedSize(horizontal: false, vertical: true)
-            .frame(minHeight: 0, maxHeight: .infinity, alignment: .top)
-            .environment(\.dashboardScoreCards, cards)
-            .appEnvironment(model)
+        let root = AnyView(
+            DashboardView(model: model, maxHeight: Self.maxHeight(below: view))
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(minHeight: 0, maxHeight: .infinity, alignment: .top)
+                .environment(\.dashboardScoreCards, cards)
+                .appEnvironment(model)
+        )
         let host = NSHostingController(rootView: root)
         host.sizingOptions = [.preferredContentSize]
         popover.contentViewController = host
@@ -77,9 +80,15 @@ final class DashboardController: NSObject, NSPopoverDelegate {
         scoreCards = nil
         appearanceObservation = nil
         closedAt = Clock.now
+        if let host = popover?.contentViewController as? NSHostingController<AnyView> {
+            host.rootView = AnyView(EmptyView())
+            host.view.removeFromSuperview()
+        }
         popover?.contentViewController = nil
+        popover?.delegate = nil
         popover = nil
         onVisibilityChange?(false)
+        malloc_zone_pressure_relief(nil, 0)
     }
 
     /// A popover takes its appearance from the menu bar it hangs from, which on macOS 26 follows the desktop picture

@@ -50,7 +50,7 @@ final class OrbTextCache {
         let scale: CGFloat
     }
 
-    private static let limit = 512
+    private static let limit = 128
     private var entries: [Key: OrbTextTexture] = [:]
     private var overflowLabels: [String] = (0...99).map { "+\($0)" }
 
@@ -85,7 +85,7 @@ final class OrbTextCache {
         guard let gpu = OrbGPU.shared, let texture = Self.rasterizeArrow(down: down, size: t, scale: scale, device: gpu.device) else {
             return nil
         }
-        if arrows.count >= 64 { arrows.removeAll(keepingCapacity: true) }
+        if arrows.count >= 32 { arrows.removeAll(keepingCapacity: true) }
         arrows[key] = texture
         return texture
     }

@@ -187,7 +187,14 @@ private struct HostQuotaSourceLines: View {
     }
 }
 
+private struct PreviewHoveredHostKey: EnvironmentKey {
+    static let defaultValue: String? = nil
+}
+
 extension EnvironmentValues {
     /// The host row drawn as hovered in previews.
-    @Entry var previewHoveredHost: String?
+    var previewHoveredHost: String? {
+        get { self[PreviewHoveredHostKey.self] }
+        set { self[PreviewHoveredHostKey.self] = newValue }
+    }
 }

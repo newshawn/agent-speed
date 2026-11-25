@@ -393,8 +393,7 @@ final class OrbAnimator {
         let gauge = feed.gauge
         let effects = self.effects(for: model)
         let unavailable = feed.unavailableTitleKey != nil
-        let minimal = renderer.kind == .minimal
-        let transitionClass: OrbFrameClass = minimal ? .fps30 : .fps60
+        let transitionClass: OrbFrameClass = .fps30
         if inTransition(gauge: gauge, at: now) { return (transitionClass, now + 0.1) }
 
         let springs = !gauge.isSettled(at: now) || !envelopesSettled || inMotion(at: now)
@@ -404,7 +403,7 @@ final class OrbAnimator {
             return (.none, min(lines.wake, nextSignOfLife(after: now, gauge: gauge, effects: effects, unavailable: unavailable)))
         }
         let frame = frameFor(now)
-        var frameClass = unavailable ? .none : renderer.ambientFrameClass(frame)
+        var frameClass = unavailable ? .none : min(renderer.ambientFrameClass(frame), .fps30)
         if springs || renderer.isBusy(frame) || lines.frames { frameClass = max(frameClass, .fps30) }
         if signOfLife(at: now, gauge: gauge, effects: effects, unavailable: unavailable) != nil { frameClass = max(frameClass, .fps30) }
         guard frameClass == .none else { return (frameClass, now + 0.25) }

@@ -112,8 +112,15 @@ struct EffortCapsuleTint: Equatable, Hashable, Sendable {
     var line: Color
 }
 
+private struct EffortCapsuleTintKey: EnvironmentKey {
+    static let defaultValue: EffortCapsuleTint? = nil
+}
+
 extension EnvironmentValues {
-    @Entry var effortCapsuleTint: EffortCapsuleTint?
+    var effortCapsuleTint: EffortCapsuleTint? {
+        get { self[EffortCapsuleTintKey.self] }
+        set { self[EffortCapsuleTintKey.self] = newValue }
+    }
 }
 
 /// How an effort token is colored: neutral up to `xhigh`, `max`, the top rung (`ultra`, `ultracode`), and a configured

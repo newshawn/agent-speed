@@ -21,17 +21,23 @@ final class SettingsTabViewController: NSTabViewController {
         transitionOptions = [.crossfade, .allowUserInteraction]
         canPropagateSelectedChildViewControllerTitle = true
         for pane in SettingsPane.allCases {
-            let root = SettingsPaneHost(pane: pane, model: model) { [weak self] height in
+            let host = LazySettingsPaneController(pane: pane, model: model) { [weak self] height in
                 self?.pane(pane, didReportHeight: height)
             }
-            let host = NSHostingController(rootView: root)
-            host.sizingOptions = []
             let item = NSTabViewItem(viewController: host)
             item.identifier = pane.rawValue
             item.image = NSImage(systemSymbolName: pane.symbol, accessibilityDescription: nil)
             addTabViewItem(item)
         }
         titleLoop = ObservationLoop { [weak self] in self?.applyTitles() }
+    }
+
+    func stop() {
+        titleLoop?.cancel()
+        titleLoop = nil
+        for item in tabViewItems {
+            (item.viewController as? LazySettingsPaneController)?.teardown()
+        }
     }
 
     @available(*, unavailable)
@@ -116,5 +122,57 @@ final class SettingsTabViewController: NSTabViewController {
             self.resizePending = false
             self.fitWindowToSelectedPane(animated: true)
         }
+    }
+}
+
+/// Hosts a single Settings pane's SwiftUI view hierarchy only while that tab is visible,
+/// avoiding eagerly constructing all 10 panes and their TimelineViews in memory.
+@MainActor
+private final class LazySettingsPaneController: NSViewController {
+    private let pane: SettingsPane
+    private let model: AppModel
+    private let onHeightChange: @MainActor (CGFloat) -> Void
+    private var hosting: NSHostingController<AnyView>?
+
+    init(pane: SettingsPane, model: AppModel, onHeightChange: @escaping @MainActor (CGFloat) -> Void) {
+        self.pane = pane
+        self.model = model
+        self.onHeightChange = onHeightChange
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) is not supported")
+    }
+
+    override func loadView() {
+        view = NSView(frame: NSRect(x: 0, y: 0, width: SettingsPaneView.width(for: pane), height: 400))
+    }
+
+    override func viewWillAppear() {
+        super.viewWillAppear()
+        guard hosting == nil else { return }
+        let root = AnyView(SettingsPaneHost(pane: pane, model: model, onHeightChange: onHeightChange))
+        let host = NSHostingController(rootView: root)
+        host.sizingOptions = []
+        addChild(host)
+        host.view.frame = view.bounds
+        host.view.autoresizingMask = [.width, .height]
+        view.addSubview(host.view)
+        hosting = host
+    }
+
+    override func viewDidDisappear() {
+        super.viewDidDisappear()
+        teardown()
+    }
+
+    func teardown() {
+        guard let host = hosting else { return }
+        hosting = nil
+        host.rootView = AnyView(EmptyView())
+        host.view.removeFromSuperview()
+        host.removeFromParent()
     }
 }

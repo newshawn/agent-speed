@@ -239,8 +239,9 @@ final class AppModel {
         monitor.start()
         estimator.start()
         quota.activate()
-        report.perfWatchHandler = { [weak monitor] epoch in monitor?.setReportWatch(epoch) }
-        report.activate()
+        // Live reporting (Codex Radar / 速蹬雷达) is disabled in this performance build to avoid
+        // background WebSocket/HTTP telemetry and connection overhead.
+        report.disableLiveReporting()
         lan.activate()
         loops.append(ObservationLoop { [weak self] in
             guard let self else { return }

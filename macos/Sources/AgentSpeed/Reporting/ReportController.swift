@@ -364,6 +364,16 @@ final class ReportController {
         active = false
     }
 
+    /// Permanently disables live reporting for this performance-focused build without disturbing unit tests.
+    func disableLiveReporting() {
+        endRun()
+        shutdown()
+        updatePreferences { preferences in
+            preferences.enabled = false
+            preferences.invite = .declined
+        }
+    }
+
     /// At quit: one `leaving` report when it can be sent within a second (REPORTING 7.1), then `reply`.
     func prepareToQuit(_ reply: @escaping () -> Void) {
         if stream != nil {

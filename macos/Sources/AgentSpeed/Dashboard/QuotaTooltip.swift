@@ -115,6 +115,7 @@ final class QuotaTooltipPanel {
         isShown = false
         panel.alphaValue = 0
         panel.orderOut(nil)
+        hosting.rootView = AnyView(EmptyView())
     }
 }
 

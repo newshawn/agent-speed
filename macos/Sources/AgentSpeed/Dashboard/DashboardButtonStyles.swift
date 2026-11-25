@@ -179,7 +179,14 @@ private struct HoverPlate<Label: View>: View {
     }
 }
 
+private struct PreviewHoveredSourceKey: EnvironmentKey {
+    static let defaultValue: SourceKind? = nil
+}
+
 extension EnvironmentValues {
     /// The source row drawn as hovered in previews.
-    @Entry var previewHoveredSource: SourceKind?
+    var previewHoveredSource: SourceKind? {
+        get { self[PreviewHoveredSourceKey.self] }
+        set { self[PreviewHoveredSourceKey.self] = newValue }
+    }
 }

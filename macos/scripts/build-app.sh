@@ -34,6 +34,7 @@ Options:
   --relay-dir DIR   Folder with agent-speed-relay-linux-x86_64 and
                     agent-speed-relay-linux-aarch64 (default:
                     <repo>/linux/relay/dist, built by linux/relay/build-static.sh).
+  --arch ARCH       Target architecture: universal (default) or arm64.
   -h, --help        Show this help.
 
 Outputs:
@@ -63,6 +64,7 @@ OUTPUT_DIR="$REPO_ROOT/dist"
 PREBUILT_BINARY=""
 PREBUILT_HELPER=""
 RELAY_DIR="$REPO_ROOT/linux/relay/dist"
+TARGET_ARCH="universal"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -78,10 +80,18 @@ while [[ $# -gt 0 ]]; do
         --helper=*) PREBUILT_HELPER="${1#*=}"; shift ;;
         --relay-dir) need_value "$@"; RELAY_DIR="$2"; shift 2 ;;
         --relay-dir=*) RELAY_DIR="${1#*=}"; shift ;;
+        --arch) need_value "$@"; TARGET_ARCH="$2"; shift 2 ;;
+        --arch=*) TARGET_ARCH="${1#*=}"; shift ;;
         -h|--help) usage; exit 0 ;;
         *) die "Unknown argument: $1" "Run with --help for usage." ;;
     esac
 done
+
+case "$TARGET_ARCH" in
+    universal) CHECK_ARCHS=(arm64 x86_64) ;;
+    arm64) CHECK_ARCHS=(arm64); SCRATCH_PATH="$MACOS_DIR/.build/arm64-release" ;;
+    *) die "Unsupported --arch \"$TARGET_ARCH\"." "Use universal or arm64." ;;
+esac
 
 if [[ -z "$VERSION" && -f "$REPO_ROOT/VERSION" ]]; then
     VERSION="$(tr -d '[:space:]' < "$REPO_ROOT/VERSION")"
@@ -131,8 +141,13 @@ if [[ -n "$PREBUILT_BINARY" ]]; then
     info "$BINARY"
     info "$HELPER_BINARY"
 else
-    SWIFT_FLAGS=(-c release --arch arm64 --arch x86_64 --package-path "$MACOS_DIR" --scratch-path "$SCRATCH_PATH")
-    step "Building universal release (arm64 + x86_64)"
+    if [[ "$TARGET_ARCH" == "universal" ]]; then
+        SWIFT_FLAGS=(-c release --arch arm64 --arch x86_64 --package-path "$MACOS_DIR" --scratch-path "$SCRATCH_PATH")
+        step "Building universal release (arm64 + x86_64)"
+    else
+        SWIFT_FLAGS=(-c release --package-path "$MACOS_DIR" --scratch-path "$SCRATCH_PATH")
+        step "Building native release ($TARGET_ARCH)"
+    fi
     swift build "${SWIFT_FLAGS[@]}" \
         || die "swift build failed." "Fix the compiler errors above and run the script again."
     BIN_DIR="$(swift build "${SWIFT_FLAGS[@]}" --show-bin-path)" \
@@ -147,9 +162,9 @@ step "Checking architectures"
 for candidate in "$BINARY" "$HELPER_BINARY"; do
     info "$(lipo -info "$candidate")"
     ARCHS=" $(lipo -archs "$candidate" 2>/dev/null || true) "
-    for arch in arm64 x86_64; do
+    for arch in "${CHECK_ARCHS[@]}"; do
         [[ "$ARCHS" == *" $arch "* ]] \
-            || die "$(basename -- "$candidate") is not universal; it must contain both arm64 and x86_64." "Found:${ARCHS% }"
+            || die "$(basename -- "$candidate") is missing architecture $arch." "Found:${ARCHS% }"
     done
 done
 
@@ -166,7 +181,7 @@ trap 'rm -rf "$STAMP_DIR"' EXIT
 vtool -set-build-version macos "$MINOS" "$EXPECTED_SDK" -replace -output "$STAMP_DIR/$EXECUTABLE" "$BINARY" \
     || die "Could not stamp the SDK version into the executable."
 BINARY="$STAMP_DIR/$EXECUTABLE"
-for arch in arm64 x86_64; do
+for arch in "${CHECK_ARCHS[@]}"; do
     STAMP="$(vtool -arch "$arch" -show-build "$BINARY" 2>/dev/null | awk '$1 == "minos" { minos = $2 } $1 == "sdk" { sdk = $2 } END { print minos " " sdk }')"
     read -r MINOS SDK <<< "$STAMP"
     [[ "${SDK%.0}" == "${EXPECTED_SDK%.0}" ]] \

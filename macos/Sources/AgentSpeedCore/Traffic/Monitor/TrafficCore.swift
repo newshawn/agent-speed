@@ -12,7 +12,7 @@ final class TrafficCore: @unchecked Sendable {
 
     static let tickInterval: DispatchTimeInterval = .seconds(1)
     /// While nettop is stopped the table is only needed to notice agent processes (METRICS 10.10).
-    static let standbyTableRefreshMs: Int64 = 2000
+    static let standbyTableRefreshMs: Int64 = 5000
     /// A tick this late (sleep, a stalled queue) restarts nettop's stall clock instead of counting as a failure.
     static let resumeGapMs: Int64 = 5000
 
@@ -176,7 +176,7 @@ final class TrafficCore: @unchecked Sendable {
         standby = false
         hasSampled = false
         let timer = DispatchSource.makeTimerSource(queue: queue)
-        timer.schedule(deadline: .now(), repeating: Self.tickInterval, leeway: .milliseconds(20))
+        timer.schedule(deadline: .now(), repeating: Self.tickInterval, leeway: .milliseconds(200))
         timer.setEventHandler { [weak self] in self?.tick() }
         timer.resume()
         self.timer = timer

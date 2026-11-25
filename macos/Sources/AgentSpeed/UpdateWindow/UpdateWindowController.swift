@@ -1,4 +1,5 @@
 import AppKit
+import Darwin
 import SwiftUI
 
 /// The compact update window (UPDATES section 4): sized to its content and anchored at its top edge, so the
@@ -32,6 +33,20 @@ final class UpdateWindowController: NSObject, NSWindowDelegate {
         window?.close()
     }
 
+    func windowWillClose(_ notification: Notification) {
+        guard let closing = notification.object as? NSWindow, closing === window else { return }
+        titleLoop?.cancel()
+        titleLoop = nil
+        if let host = closing.contentViewController as? NSHostingController<AnyView> {
+            host.rootView = AnyView(EmptyView())
+        }
+        closing.delegate = nil
+        closing.contentViewController = nil
+        window = nil
+        contentHeight = 0
+        malloc_zone_pressure_relief(nil, 0)
+    }
+
     private func ensureWindow() -> NSWindow {
         if let window { return window }
         let root = UpdateView(model: model) { [weak self] in
@@ -45,7 +60,7 @@ final class UpdateWindowController: NSObject, NSWindowDelegate {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .appEnvironment(model)
 
-        let host = NSHostingController(rootView: root)
+        let host = NSHostingController(rootView: AnyView(root))
         host.sizingOptions = []
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: Self.width, height: 240),

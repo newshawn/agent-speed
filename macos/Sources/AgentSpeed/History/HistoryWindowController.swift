@@ -1,5 +1,6 @@
 import AgentSpeedCore
 import AppKit
+import Darwin
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -51,7 +52,21 @@ final class HistoryWindowController: NSObject, NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         liveDayTimer?.invalidate()
         liveDayTimer = nil
+        titleLoop?.cancel()
+        titleLoop = nil
         viewModel?.isOpen = false
+        if let closing = notification.object as? NSWindow, closing === window {
+            if let host = closing.contentViewController as? NSHostingController<AnyView> {
+                host.rootView = AnyView(EmptyView())
+            }
+            closing.delegate = nil
+            closing.toolbar = nil
+            closing.contentViewController = nil
+        }
+        toolbar = nil
+        viewModel = nil
+        window = nil
+        malloc_zone_pressure_relief(nil, 0)
     }
 
     /// Keeps a single-day view of today current while the window is on screen.
@@ -73,7 +88,7 @@ final class HistoryWindowController: NSObject, NSWindowDelegate {
         if let window, let viewModel { return (window, viewModel) }
         let viewModel = HistoryViewModel(store: model.history, l10n: model.l10n, accessibility: model.accessibility, cost: model.cost,
                                          traffic: model.traffic)
-        let root = HistoryView(model: viewModel).appEnvironment(model)
+        let root = AnyView(HistoryView(model: viewModel).appEnvironment(model))
         let host = NSHostingController(rootView: root)
         host.sizingOptions = []
 

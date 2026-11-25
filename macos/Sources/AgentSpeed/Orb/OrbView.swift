@@ -241,7 +241,14 @@ enum OrbStill {
     }
 }
 
+private struct OrbStillTimeKey: EnvironmentKey {
+    static let defaultValue: TimeInterval? = nil
+}
+
 extension EnvironmentValues {
     /// When set, every orb in the subtree renders a still frame at this time (previews).
-    @Entry var orbStillTime: TimeInterval?
+    var orbStillTime: TimeInterval? {
+        get { self[OrbStillTimeKey.self] }
+        set { self[OrbStillTimeKey.self] = newValue }
+    }
 }

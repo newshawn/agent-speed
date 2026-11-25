@@ -36,8 +36,7 @@ struct OrbMetalView: NSViewRepresentable {
     }
 
     static func dismantleNSView(_ view: OrbMTKView, coordinator: ()) {
-        view.isPaused = true
-        view.sceneProvider = nil
+        view.teardown()
     }
 }
 
@@ -99,14 +98,17 @@ final class OrbMTKView: MTKView, MTKViewDelegate {
         }
     }
 
-    /// 60 fps, or with `followsDisplay` the display rate divided by the largest integer that keeps it at 60 fps or
-    /// more (144 Hz → 72, 120 Hz → 60), so every frame lands on a refresh.
-    private var activeRate: Int {
-        guard followsDisplay, let maximum = window?.screen?.maximumFramesPerSecond, maximum > 60 else { return 60 }
-        var divisor = 1
-        while maximum / (divisor + 1) >= 60 { divisor += 1 }
-        return maximum / divisor
+    func teardown() {
+        isPaused = true
+        enableSetNeedsDisplay = true
+        sceneProvider = nil
+        delegate = nil
+        encoder?.releaseTransientResources()
+        releaseDrawables()
     }
+
+    /// Capped at 30 fps in this performance build to cut GPU/CPU work while keeping the small dashboard orb smooth.
+    private var activeRate: Int { 30 }
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()

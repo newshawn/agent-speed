@@ -175,7 +175,7 @@ final class QuotaController {
         let timer = Timer(timeInterval: Self.tickInterval, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }
         }
-        timer.tolerance = 1
+        timer.tolerance = 2
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
         // A switch turned on reads at once.
@@ -228,6 +228,8 @@ final class QuotaController {
         if force { runVendorRound(nowMs: now) }
         guard !roundInFlight else { return }
         if !force { ticks += 1 }
+        // When idle and no quota UI is visible, back off file/process/vendor checks from 5 s to 30 s.
+        if !force, !dashboardOpen, !wantsCard, store.snapshot.agents.isEmpty, ticks % 6 != 0 { return }
         let every15s = force || ticks % 3 == 0
         let everyMinute = force || ticks % 12 == 0
         let tableApps = traffic.snapshot.enabled ? traffic.snapshot.quotaApps : nil

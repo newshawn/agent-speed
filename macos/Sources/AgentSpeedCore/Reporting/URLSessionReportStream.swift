@@ -97,6 +97,13 @@ final class URLSessionReportStreamLink: NSObject, ReportStreamLink, URLSessionWe
         end(silently: true) { task, session in
             task?.cancel(with: .normalClosure, reason: nil)
             session?.finishTasksAndInvalidate()
+            // Proxied or half-closed WebSocket tasks can stall finishTasksAndInvalidate() indefinitely,
+            // leaking the entire URLSession (TLS certificates, nw_context, CFNetwork SQLite handle).
+            if let session {
+                work.asyncAfter(deadline: .now() + 0.3) {
+                    session.invalidateAndCancel()
+                }
+            }
         }
     }
 
@@ -134,6 +141,10 @@ final class URLSessionReportStreamLink: NSObject, ReportStreamLink, URLSessionWe
     }
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: (any Error)?) {
+        if isEnded {
+            session.invalidateAndCancel()
+            return
+        }
         let wasOpened = lock.withLock { opened }
         guard wasOpened else {
             if let response = task.response as? HTTPURLResponse, response.statusCode != 101 {

@@ -47,9 +47,16 @@ final class DashboardScoreCards {
     }
 }
 
+private struct DashboardScoreCardsKey: EnvironmentKey {
+    static let defaultValue: DashboardScoreCards? = nil
+}
+
 extension EnvironmentValues {
     /// Set by the dashboard's popover; nil elsewhere (previews), where a row keeps a text tooltip.
-    @Entry var dashboardScoreCards: DashboardScoreCards?
+    var dashboardScoreCards: DashboardScoreCards? {
+        get { self[DashboardScoreCardsKey.self] }
+        set { self[DashboardScoreCardsKey.self] = newValue }
+    }
 }
 
 /// A weak handle on the AppKit view behind a SwiftUI row, so its screen frame is read only when a card is shown.
