@@ -38,7 +38,7 @@ final class OrderedDecoder: @unchecked Sendable {
     private var cancelled = false
     private var runningWorkers = 0
 
-    init(jobs: [Job], maxFilesAhead: Int = 256, maxBytesAhead: Int64 = 256 << 20) {
+    init(jobs: [Job], maxFilesAhead: Int = 16, maxBytesAhead: Int64 = 8 << 20) {
         self.jobs = jobs
         self.maxFilesAhead = max(1, maxFilesAhead)
         self.maxBytesAhead = max(1, maxBytesAhead)

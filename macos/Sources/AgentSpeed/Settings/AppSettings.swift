@@ -158,7 +158,7 @@ final class AppSettings {
         orbsVisible = defaults.object(forKey: Key.orbsVisible.rawValue) as? Bool
             ?? defaults.object(forKey: Key.orbVisible.rawValue) as? Bool ?? true
         orbNames = OrbNamesMode(rawValue: defaults.string(forKey: Key.orbNames.rawValue) ?? "") ?? .auto
-        trafficEnabled = defaults.object(forKey: Key.trafficEnabled.rawValue) as? Bool ?? true
+        trafficEnabled = defaults.object(forKey: Key.trafficEnabled.rawValue) as? Bool ?? false
         trafficIncludeTools = defaults.object(forKey: Key.trafficIncludeTools.rawValue) as? Bool ?? true
         trafficUnit = TrafficUnit(rawValue: defaults.string(forKey: Key.trafficUnit.rawValue) ?? "") ?? .bytes
         // Earlier builds kept 性能 as a fourth traffic choice: it becomes the switch once, and the network block off.

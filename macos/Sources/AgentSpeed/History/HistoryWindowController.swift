@@ -58,6 +58,7 @@ final class HistoryWindowController: NSObject, NSWindowDelegate {
         if let closing = notification.object as? NSWindow, closing === window {
             if let host = closing.contentViewController as? NSHostingController<AnyView> {
                 host.rootView = AnyView(EmptyView())
+                host.view.layoutSubtreeIfNeeded()
             }
             closing.delegate = nil
             closing.toolbar = nil
@@ -66,7 +67,7 @@ final class HistoryWindowController: NSObject, NSWindowDelegate {
         toolbar = nil
         viewModel = nil
         window = nil
-        malloc_zone_pressure_relief(nil, 0)
+        model.stopHistory()
     }
 
     /// Keeps a single-day view of today current while the window is on screen.

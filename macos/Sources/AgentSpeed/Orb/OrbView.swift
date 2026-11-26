@@ -80,7 +80,6 @@ struct OrbView: View {
                 rim: content.bezel == nil
             )
             .equatable()
-            .drawingGroup()
             if let stillTime = fixedTime ?? environmentStillTime {
                 let _ = animator.follow(feed, model: model)
                 let _ = fixedTime == nil ? animator.primeForStill(model: model, gauge: feed.gauge) : ()

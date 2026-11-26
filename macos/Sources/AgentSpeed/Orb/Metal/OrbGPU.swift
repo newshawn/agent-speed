@@ -18,10 +18,28 @@ final class OrbGPU: Sendable {
     let ledSilk: MTLRenderPipelineState
     /// The heat palette (DESIGN 1) as a 256 × 1 texture, for shapes that follow the spectrum.
     nonisolated(unsafe) let palette: MTLTexture
-    /// The dashboard hero's vehicle layer (DESIGN 4c); nil if its shaders failed, which only hides the vehicle.
-    let hero: HeroLayerGPU?
-    /// The `character` style's mesh, lights and sprites (DESIGN 2a.6); nil if its shaders failed.
-    let character: CharacterLayerGPU?
+    private let heroStorage = OSAllocatedUnfairLock<(initialized: Bool, value: HeroLayerGPU?)>(initialState: (false, nil))
+    private let characterStorage = OSAllocatedUnfairLock<(initialized: Bool, value: CharacterLayerGPU?)>(initialState: (false, nil))
+    /// The dashboard hero's vehicle layer (DESIGN 4c); compiled lazily on first use.
+    var hero: HeroLayerGPU? {
+        heroStorage.withLock { state in
+            if !state.initialized {
+                state.value = HeroLayerGPU(device: device)
+                state.initialized = true
+            }
+            return state.value
+        }
+    }
+    /// The `character` style's mesh, lights and sprites (DESIGN 2a.6); compiled lazily on first use.
+    var character: CharacterLayerGPU? {
+        characterStorage.withLock { state in
+            if !state.initialized {
+                state.value = CharacterLayerGPU(device: device, pixelFormat: Self.pixelFormat)
+                state.initialized = true
+            }
+            return state.value
+        }
+    }
     static let pixelFormat = MTLPixelFormat.bgra8Unorm
 
     private init?() {
@@ -56,8 +74,6 @@ final class OrbGPU: Sendable {
         self.device = device
         self.queue = queue
         self.palette = palette
-        hero = HeroLayerGPU(device: device)
-        character = CharacterLayerGPU(device: device, pixelFormat: Self.pixelFormat)
     }
 
     func pipeline(for blend: OrbBlend) -> MTLRenderPipelineState {

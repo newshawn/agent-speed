@@ -78,12 +78,12 @@ final class TranscriptSession {
     /// once every `recheckTurns` rounds: FSEvents stays silent while a writer keeps its file open (METRICS 5).
     static let recheckWindowMs: Int64 = 24 * 3_600_000
     static let recheckTurns = 6
-    static let maxDecodeWorkers = 8
+    static let maxDecodeWorkers = 2
     /// A changed Antigravity database is read at most this often; its WAL is written continuously (METRICS 5.4).
     static let databaseReadIntervalNs: UInt64 = 500_000_000
     /// Database connections unused this long are closed, and at most `maxOpenDatabases` stay open (METRICS 5.4).
-    static let databaseIdleNs: UInt64 = 60_000_000_000
-    static let maxOpenDatabases = 16
+    static let databaseIdleNs: UInt64 = 15_000_000_000
+    static let maxOpenDatabases = 4
     /// Deduplication owners of the database sources by list position (METRICS 2.1): OpenCode −1, −3, …, ZCode −2, −4,
     /// …; transcript files count up from 0, OpenClaw windows from `.min`.
     static func opencodeFileID(_ index: Int) -> FileID { -1 - 2 * FileID(index) }
@@ -433,7 +433,7 @@ final class TranscriptSession {
 
     /// The input the startup backlog may decode ahead of its consumer (a smaller window starves the consumer behind
     /// large files).
-    static let backlogBytesAhead: Int64 = 256 << 20
+    static let backlogBytesAhead: Int64 = 8 << 20
 
     /// The bytes a backlog read covers: a tail window, or the whole file.
     private static func backlogBytes(_ start: FileTailer.Start, size: Int64) -> Int64 {

@@ -1,5 +1,6 @@
 import AgentSpeedCore
 import AppKit
+import Darwin
 import Observation
 
 /// Commands the UI can trigger; implemented by `AppDelegate`.
@@ -218,10 +219,6 @@ final class AppModel {
         traffic.start()
         let monitor = LiveMonitor(store: store, configuration: settings.monitorConfiguration, pricing: priceBook)
         self.monitor = monitor
-        let estimator = QuotaEstimator(data: Self.appDataDirectory, pricing: priceBook)
-        self.estimator = estimator
-        quota.attach(estimator)
-        monitor.spendSink = estimator
         appliedConfiguration = settings.monitorConfiguration
         monitor.setSubsets(orbSubsets.union(boardSubsets))
         // The hosts reach the monitor's feed before it starts, so a Mac without local sources still goes live.
@@ -235,9 +232,8 @@ final class AppModel {
             let names = document.displayNames()
             self.remoteHistory.setHosts(document.hosts.map { (id: $0.id, name: names[$0.id] ?? $0.automaticName) })
         })
-        remoteHosts.start(settings: settings, prices: prices, salt: estimator.saltHex)
+        remoteHosts.start(settings: settings, prices: prices, salt: nil)
         monitor.start()
-        estimator.start()
         quota.activate()
         // Live reporting (Codex Radar / 速蹬雷达) is disabled in this performance build to avoid
         // background WebSocket/HTTP telemetry and connection overhead.
@@ -251,7 +247,8 @@ final class AppModel {
             self.monitor?.update(configuration: configuration)
             self.historyService?.update(configuration: configuration)
         })
-        scheduleHistory()
+        // HistoryService starts on demand when the Usage History window opens, avoiding an eager
+        // multi-hundred-MB transcript decode and permanent heap fragmentation at startup.
     }
 
     /// The history analysis reads every log, so it starts only once the live monitor has read today's transcripts
@@ -316,6 +313,16 @@ final class AppModel {
         history.perfRecordsHandler = { [weak self] records in self?.monitor?.setPerfHistory(records) }
         historyService = service
         service.start()
+    }
+
+    /// Stops the daily history worker and clears cached day rows when the History window closes.
+    func stopHistory() {
+        historyStartTimer?.invalidate()
+        historyStartTimer = nil
+        historyService?.stop()
+        historyService = nil
+        history.resetInMemory()
+        malloc_zone_pressure_relief(nil, 0)
     }
 
     /// Settings → 網路流量 `traffic.retry`: starts the per-process sampler again after it gave up (METRICS 10.3).

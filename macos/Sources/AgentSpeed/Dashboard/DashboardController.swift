@@ -40,21 +40,27 @@ final class DashboardController: NSObject, NSPopoverDelegate {
         guard !isShown else { return }
         let popover = NSPopover()
         popover.behavior = .transient
-        popover.animates = !model.accessibility.reduceMotion
+        // Avoids macOS 26 NSPopover fade-out snapshot IOSurfaces (~5 MB RenderBox surfaces).
+        popover.animates = false
         popover.delegate = self
-        // The content keeps its ideal height, which the popover follows frame by frame through the preferred content
-        // size, and stays pinned to the top, so a window a point off never squeezes, shifts or re-centres it.
         let cards = DashboardScoreCards(model: model)
         scoreCards = cards
+        let maxHeight = Self.maxHeight(below: view)
         let root = AnyView(
-            DashboardView(model: model, maxHeight: Self.maxHeight(below: view))
+            DashboardView(model: model, maxHeight: maxHeight)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(minHeight: 0, maxHeight: .infinity, alignment: .top)
                 .environment(\.dashboardScoreCards, cards)
                 .appEnvironment(model)
         )
         let host = NSHostingController(rootView: root)
-        host.sizingOptions = [.preferredContentSize]
+        // Avoid .preferredContentSize live resizing: 1 pt height jitter (e.g. 1718 <-> 1720 px) on macOS 26
+        // causes RenderBox to allocate a new 5 MB non-purgeable IOSurface on every resize tick.
+        host.sizingOptions = []
+        let fittingHeight = host.sizeThatFits(in: NSSize(width: Self.width, height: maxHeight ?? 760)).height
+        let clampedHeight = min(max(fittingHeight, 240), maxHeight ?? 760)
+        let quantizedHeight = (clampedHeight / 8).rounded(.up) * 8
+        popover.contentSize = NSSize(width: Self.width, height: quantizedHeight)
         popover.contentViewController = host
         self.popover = popover
         applyAppearance()
@@ -73,6 +79,13 @@ final class DashboardController: NSObject, NSPopoverDelegate {
 
     func popoverWillClose(_ notification: Notification) {
         scoreCards?.close()
+        // Flush an empty view while still attached to the popover window so SwiftUI/RenderBox
+        // drops its RB::Surface backing IOSurface before teardown.
+        if let host = popover?.contentViewController as? NSHostingController<AnyView> {
+            host.rootView = AnyView(EmptyView())
+            host.view.layoutSubtreeIfNeeded()
+            host.view.displayIfNeeded()
+        }
     }
 
     func popoverDidClose(_ notification: Notification) {

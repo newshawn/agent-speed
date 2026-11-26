@@ -160,6 +160,15 @@ public final class HistoryStore {
         if remoteTooLarge != self.remoteTooLarge { self.remoteTooLarge = remoteTooLarge }
     }
 
+    /// Drops cached daily usage and performance rows when the History window is closed.
+    public func resetInMemory() {
+        state = .notLoaded
+        days.removeAll(keepingCapacity: false)
+        hostNames.removeAll(keepingCapacity: false)
+        remoteTooLarge.removeAll(keepingCapacity: false)
+        perfRecords.removeAll(keepingCapacity: false)
+    }
+
     public func publish(perfRecords: [PerfDayRecord]) {
         guard perfRecords != self.perfRecords else { return }
         self.perfRecords = perfRecords
