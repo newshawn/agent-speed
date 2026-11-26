@@ -1,6 +1,7 @@
 import AgentSpeedCore
 import AgentSpeedOrbModel
 import AppKit
+import Darwin
 
 /// Owns one window per board (DESIGN 2c): creates, updates and closes them live from the document, places new boards
 /// like new orbs next to the window they came from, keeps positions per display arrangement, and applies the global
@@ -81,8 +82,17 @@ final class BoardWindowManager {
             presenters[id] = nil
         }
         var placed: [FloatingShape] = []
+        var closedHidden = false
         for board in boards {
             guard let runtime = model.boards.runtime(board.id) else { continue }
+            // Do not keep hidden board windows, Metal canvases, or offscreen drawables alive in memory.
+            if !board.visible, !pendingPlacement.contains(board.id) {
+                if let presenter = presenters.removeValue(forKey: board.id) {
+                    presenter.close()
+                    closedHidden = true
+                }
+                continue
+            }
             if let presenter = presenters[board.id] {
                 presenter.apply(board)
             } else {
@@ -102,6 +112,7 @@ final class BoardWindowManager {
                 board.visible ? presenter.window.show() : presenter.window.hide()
             }
         }
+        if closedHidden { malloc_zone_pressure_relief(nil, 0) }
     }
 
     private func applyLook() {

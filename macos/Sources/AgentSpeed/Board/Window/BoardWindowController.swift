@@ -60,6 +60,7 @@ final class BoardWindowController {
         self.center = center
         self.dark = dark
         driver = BoardEffectsDriver(style: config.style, side: config.size.side)
+        driver.canRender = false
         host = BoardHostView(warp: driver.warp.layer)
         animator = OrbWindowAnimator(center: center, diameter: CGFloat(config.size.side))
         panel.contentView = host
@@ -122,6 +123,8 @@ final class BoardWindowController {
         hide()
         animator.stop()
         driver.canRender = false
+        panel.contentView = nil
+        effectsPanel.contentView = nil
         panel.close()
         effectsPanel.close()
     }

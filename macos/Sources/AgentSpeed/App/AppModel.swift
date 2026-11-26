@@ -249,6 +249,10 @@ final class AppModel {
         })
         // HistoryService starts on demand when the Usage History window opens, avoiding an eager
         // multi-hundred-MB transcript decode and permanent heap fragmentation at startup.
+        // Release transient startup malloc arenas (e.g. empty MALLOC_LARGE slabs) once bootstrap settles.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 8) {
+            malloc_zone_pressure_relief(nil, 0)
+        }
     }
 
     /// The history analysis reads every log, so it starts only once the live monitor has read today's transcripts
