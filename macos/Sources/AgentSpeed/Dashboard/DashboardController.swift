@@ -12,7 +12,6 @@ final class DashboardController: NSObject, NSPopoverDelegate {
 
     private let model: AppModel
     private var popover: NSPopover?
-    private var host: NSHostingController<AnyView>?
     /// The agent rows' score cards, alive while the panel is open.
     private var scoreCards: DashboardScoreCards?
     private var closedAt: TimeInterval = 0
@@ -49,31 +48,26 @@ final class DashboardController: NSObject, NSPopoverDelegate {
                 .environment(\.dashboardScoreCards, cards)
                 .appEnvironment(model)
         )
-        // Reuse a single NSPopover + NSHostingController across open/close cycles: on macOS 26
-        // creating and discarding a fresh NSHostingController per open leaks one ~4.2 MB RenderBox
-        // RB::Surface IOSurface each time.
+        // Reuse a single NSPopover so macOS 26 reuses its popover window & RenderBox surface,
+        // while replacing its NSHostingController on every open/close so SwiftUI's AttributeGraph
+        // and TypedElement/subgraph caches are torn down completely instead of accumulating.
         let popover: NSPopover
-        let host: NSHostingController<AnyView>
-        if let existingPopover = self.popover, let existingHost = self.host {
+        if let existingPopover = self.popover {
             popover = existingPopover
-            host = existingHost
-            host.rootView = root
         } else {
             let createdPopover = NSPopover()
             createdPopover.behavior = .transient
             // Avoids macOS 26 NSPopover fade-out snapshot IOSurfaces (~5 MB RenderBox surfaces).
             createdPopover.animates = false
             createdPopover.delegate = self
-            let createdHost = NSHostingController(rootView: root)
-            // Avoid .preferredContentSize live resizing: 1 pt height jitter on macOS 26
-            // causes RenderBox to allocate a new non-purgeable IOSurface on every resize tick.
-            createdHost.sizingOptions = []
-            createdPopover.contentViewController = createdHost
             self.popover = createdPopover
-            self.host = createdHost
             popover = createdPopover
-            host = createdHost
         }
+        let host = NSHostingController(rootView: root)
+        // Avoid .preferredContentSize live resizing: 1 pt height jitter on macOS 26
+        // causes RenderBox to allocate a new non-purgeable IOSurface on every resize tick.
+        host.sizingOptions = []
+        popover.contentViewController = host
         let maxAllowed = min(maxHeight ?? 680, 680)
         let fittingHeight = host.sizeThatFits(in: NSSize(width: Self.width, height: maxAllowed)).height
         let clampedHeight = min(max(fittingHeight, 240), maxAllowed)
@@ -100,7 +94,7 @@ final class DashboardController: NSObject, NSPopoverDelegate {
         scoreCards?.close()
         // Flush an empty view while still attached to the popover window so SwiftUI tears down
         // all live observations, animations, and embedded Metal views before close completes.
-        if let host {
+        if let host = popover?.contentViewController as? NSHostingController<AnyView> {
             host.rootView = AnyView(EmptyView())
             host.view.layoutSubtreeIfNeeded()
             host.view.displayIfNeeded()
@@ -112,9 +106,13 @@ final class DashboardController: NSObject, NSPopoverDelegate {
         scoreCards = nil
         appearanceObservation = nil
         closedAt = Clock.now
-        if let host {
+        if let host = popover?.contentViewController as? NSHostingController<AnyView> {
             host.rootView = AnyView(EmptyView())
+            host.view.removeFromSuperview()
         }
+        // Tear down the NSHostingController (destroying SwiftUI's ViewGraph/AttributeGraph) while
+        // keeping the NSPopover shell for reuse.
+        popover?.contentViewController = nil
         CATransaction.flush()
         onVisibilityChange?(false)
         malloc_zone_pressure_relief(nil, 0)

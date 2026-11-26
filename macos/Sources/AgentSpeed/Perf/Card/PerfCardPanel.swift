@@ -126,7 +126,11 @@ final class PerfCardPanel {
     func close() {
         isShown = false
         transition.cancel()
+        content.model = nil
+        hosting.removeFromSuperview()
+        panel.contentView = nil
         panel.alphaValue = 0
+        panel.orderOut(nil)
         panel.close()
     }
 

@@ -135,15 +135,16 @@ final class PerfCardPresenter {
     }
 
     /// Esc, or the surface closed.
-    func dismiss() {
+    func dismiss(animated: Bool = true) {
         pendingShow?.cancel()
         pendingShow = nil
         pendingHide?.cancel()
         pendingHide = nil
+        hovered = nil
         fromKeyboard = false
         shownKey = nil
         shownProvider = nil
-        display.hide(animated: true)
+        display.hide(animated: animated)
     }
 
     /// The engine tick: the shown card takes its row's new content.
