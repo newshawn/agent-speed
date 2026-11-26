@@ -14,7 +14,8 @@ struct HistoryChartCard: View {
         let l10n = model.l10n
         VStack(alignment: .leading, spacing: Spacing.s) {
             ChartLegend(chart: chart, l10n: l10n, dark: colorScheme == .dark, increasedContrast: contrast == .increased,
-                        metric: Binding(get: { model.chartMetric }, set: { model.select(metric: $0) }),
+                        metric: Binding(get: { [weak model] in model?.chartMetric ?? .output },
+                                        set: { [weak model] in model?.select(metric: $0) }),
                         metrics: model.offersTraffic ? HistoryChartMetric.allCases : [.output, .cost],
                         trafficTotal: model.content.trafficTotal.map { TrafficText(l10n: l10n, bits: false).pair($0) })
             HistoryChartView(

@@ -73,7 +73,8 @@ struct HistoryView: View {
                                 money: content.money,
                                 l10n: model.l10n,
                                 reduceMotion: model.accessibility.reduceMotion,
-                                metric: Binding(get: { model.chartMetric }, set: { model.select(metric: $0) })
+                                metric: Binding(get: { [weak model] in model?.chartMetric ?? .output },
+                                                set: { [weak model] in model?.select(metric: $0) })
                             ) { source in
                                 model.select(source: source)
                             }
