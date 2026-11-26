@@ -77,13 +77,12 @@ final class HistoryAnalyzer {
     }
 
     /// Half the cores, at most four: the first analysis stays short without crowding the machine.
-    static var defaultWorkers: Int {
-        max(2, min(maxWorkers, ProcessInfo.processInfo.activeProcessorCount / 2))
-    }
+    static var defaultWorkers: Int { 2 }
 
     let database: HistoryDatabase
     /// Shared with the live engine in the app, so today is priced alike (METRICS 9.6).
     let pricing: PriceBook
+    private let loadsEstimates: Bool
     private(set) var entries: [String: HistoryDatabase.Entry]
     private var peaks: [String: Double]
     private var indexes: [String: DirectoryIndex] = [:]
@@ -105,14 +104,17 @@ final class HistoryAnalyzer {
     private(set) var lastCompleteRunStartMs: Int64?
     private lazy var estimateModels = QuotaModelIds(pricing: pricing)
 
-    init(database: HistoryDatabase, pricing: PriceBook = PriceBook()) throws {
+    init(database: HistoryDatabase, pricing: PriceBook = PriceBook(), loadsEstimates: Bool = true) throws {
         self.database = database
         self.pricing = pricing
+        self.loadsEstimates = loadsEstimates
         entries = try database.loadEntries()
         peaks = try database.peaks()
-        for (path, stored) in (try? database.estimateFiles()) ?? [:] {
-            estimateFiles[path] = stored.file
-            estimateVersions[path] = stored.version
+        if loadsEstimates {
+            for (path, stored) in (try? database.estimateFiles()) ?? [:] {
+                estimateFiles[path] = stored.file
+                estimateVersions[path] = stored.version
+            }
         }
         let repaired = pricing.restore(bindings: try database.priceBindings(), tables: try database.priceTables())
         if !repaired.isEmpty {
@@ -244,7 +246,7 @@ final class HistoryAnalyzer {
                 let droidIdentity = family == .droid ? DroidHistoryIdentity(path: path, stat: stat, parents: &droidParents) : nil
                 let size = droidIdentity?.size ?? stat.size
                 let modified = droidIdentity?.modified ?? stat.modifiedNs
-                let estimateMissing = estimateVersions[path] != QuotaEstimateFile.version
+                let estimateMissing = loadsEstimates && estimateVersions[path] != QuotaEstimateFile.version
                     && modified / 1_000_000 >= (options.nowMs ?? Self.clockMs()) - QuotaEstimateConstants.keepMs
                 if let previous, !zoneChanged, previous.version == options.analysisVersion,
                    previous.family == family.rawValue, previous.size == size, previous.modified == modified,
@@ -548,6 +550,7 @@ final class HistoryAnalyzer {
         var pendingEstimates: [String: QuotaEstimateFile] = [:]
         var lastSave = DispatchTime.now().uptimeNanoseconds
         func noteEstimate(_ path: String, _ records: some Sequence<ResponseRecord>, lines: [QuotaCodexLine] = []) {
+            guard loadsEstimates else { return }
             let file = QuotaEstimateFile.make(records: records, lines: lines, pricing: pricing, models: estimateModels,
                                               labeler: &labeler, nowMs: startedMs)
             pendingEstimates[path] = file
@@ -597,7 +600,7 @@ final class HistoryAnalyzer {
                     var parser = TranscriptParser(
                         family: file.family, agentId: file.path, fileID: FileID(truncatingIfNeeded: index), root: file.root)
                     parser.keepCompletionsOnly()
-                    parser.collectCodexQuotaLines()
+                    if loadsEstimates { parser.collectCodexQuotaLines() }
                     if file.family == .droid { parser.droidUnreadableParent = droidUnreadableParents[file.path] }
                     var latest: [String: ResponseRecord] = [:]
                     var order = PerfCompletionOrder()
@@ -619,14 +622,14 @@ final class HistoryAnalyzer {
                     // The performance records of the file read whole (METRICS 6.11 *Records*).
                     var recorder = PerfRecorder(timeZone: options.timeZone)
                     order.record(into: &recorder, latest: latest, agentId: file.path, source: source)
-                    // The quota estimate's share: the same responses, each with the file's final source.
-                    let estimate = QuotaEstimateFile.make(
+                    // The quota estimate's share: only built when quota estimation is active.
+                    let estimate: QuotaEstimateFile? = loadsEstimates ? QuotaEstimateFile.make(
                         records: latest.values.map { record -> ResponseRecord in
                             var record = record
                             record.source = source
                             return record
                         }, lines: parser.takeCodexQuotaLines(), pricing: pricing, models: estimateModels,
-                        labeler: &labeler, nowMs: startedMs)
+                        labeler: &labeler, nowMs: startedMs) : nil
                     return (days, deduper.finishFile(), false, recorder.rows, estimate)
                 }
                 if unknown {

@@ -57,9 +57,12 @@ final class DashboardController: NSObject, NSPopoverDelegate {
         // Avoid .preferredContentSize live resizing: 1 pt height jitter (e.g. 1718 <-> 1720 px) on macOS 26
         // causes RenderBox to allocate a new 5 MB non-purgeable IOSurface on every resize tick.
         host.sizingOptions = []
-        let fittingHeight = host.sizeThatFits(in: NSSize(width: Self.width, height: maxHeight ?? 760)).height
-        let clampedHeight = min(max(fittingHeight, 240), maxHeight ?? 760)
-        let quantizedHeight = (clampedHeight / 8).rounded(.up) * 8
+        let maxAllowed = min(maxHeight ?? 680, 680)
+        let fittingHeight = host.sizeThatFits(in: NSSize(width: Self.width, height: maxAllowed)).height
+        let clampedHeight = min(max(fittingHeight, 240), maxAllowed)
+        // Coarse 64 pt quantization prevents macOS 26 RenderBox/Liquid Glass from caching multiple
+        // 12 MB RGhA + 5 MB RGBA backing surfaces as the agent list grows/shrinks slightly.
+        let quantizedHeight = min((clampedHeight / 64).rounded(.up) * 64, maxAllowed)
         popover.contentSize = NSSize(width: Self.width, height: quantizedHeight)
         popover.contentViewController = host
         self.popover = popover
@@ -93,6 +96,7 @@ final class DashboardController: NSObject, NSPopoverDelegate {
         scoreCards = nil
         appearanceObservation = nil
         closedAt = Clock.now
+        let backingWindow = popover?.contentViewController?.view.window
         if let host = popover?.contentViewController as? NSHostingController<AnyView> {
             host.rootView = AnyView(EmptyView())
             host.view.removeFromSuperview()
@@ -100,8 +104,14 @@ final class DashboardController: NSObject, NSPopoverDelegate {
         popover?.contentViewController = nil
         popover?.delegate = nil
         popover = nil
+        backingWindow?.orderOut(nil)
+        backingWindow?.close()
+        CATransaction.flush()
         onVisibilityChange?(false)
         malloc_zone_pressure_relief(nil, 0)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            malloc_zone_pressure_relief(nil, 0)
+        }
     }
 
     /// A popover takes its appearance from the menu bar it hangs from, which on macOS 26 follows the desktop picture

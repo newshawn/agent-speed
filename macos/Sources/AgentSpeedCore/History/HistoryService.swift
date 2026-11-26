@@ -241,6 +241,7 @@ final class HistoryWorker: @unchecked Sendable {
             periodicTimer = nil
             midnightTimer = nil
             analyzer = nil
+            malloc_zone_pressure_relief(nil, 0)
         }
     }
 
@@ -306,11 +307,12 @@ final class HistoryWorker: @unchecked Sendable {
     func openAnalyzer() -> HistoryAnalyzer? {
         if let analyzer { return analyzer }
         guard !isStopped else { return nil }
+        let loadsEstimates = estimatePublisher != nil
         do {
-            analyzer = try HistoryAnalyzer(database: HistoryDatabase(path: storePath), pricing: pricing)
+            analyzer = try HistoryAnalyzer(database: HistoryDatabase(path: storePath), pricing: pricing, loadsEstimates: loadsEstimates)
         } catch {
             // An unreadable or newer store is left untouched; this launch keeps its history in memory.
-            analyzer = try? HistoryAnalyzer(database: HistoryDatabase.inMemory(), pricing: pricing)
+            analyzer = try? HistoryAnalyzer(database: HistoryDatabase.inMemory(), pricing: pricing, loadsEstimates: loadsEstimates)
         }
         if let analyzer {
             remoteLedger.load(from: analyzer.database)
@@ -345,7 +347,7 @@ final class HistoryWorker: @unchecked Sendable {
             post(.ready(updatedAt: Date()), days: true)
             postPerf()
             if let estimatePublisher, let history = analyzer.estimateHistory { estimatePublisher(history) }
-            if report.bytesAnalyzed >= Self.visibleRunBytes { malloc_zone_pressure_relief(nil, 0) }
+            if report.filesAnalyzed > 0 || report.bytesAnalyzed > 0 { malloc_zone_pressure_relief(nil, 0) }
         } catch {
             post(.failed("The usage history could not be updated."), days: true)
         }
