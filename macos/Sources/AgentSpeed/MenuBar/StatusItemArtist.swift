@@ -82,12 +82,31 @@ enum StatusItemArtist {
         context.strokePath()
     }
 
+    /// Leading zero placeholder for 1–2 digit integers so the ring and digits stay visually coupled
+    /// inside the reserved 3-digit slot instead of leaving an empty gap between them.
+    static func leadingZeroPrefix(for value: String, slotWidth: CGFloat) -> String {
+        guard slotWidth >= StatusItemLayout.minimumTokenValueWidth,
+              !value.isEmpty, value.count < 3,
+              value.allSatisfy({ $0.isASCII && $0.isNumber }) else {
+            return ""
+        }
+        return String(repeating: "0", count: 3 - value.count)
+    }
+
     private static func drawText(_ state: StatusItemState, palette: StatusItemPalette, layout: StatusItemLayout) {
         let valueFont = StatusItemLayout.valueFont
-        let value = NSAttributedString(string: state.value, attributes: [
+        let prefix = leadingZeroPrefix(for: state.value, slotWidth: layout.valueWidth)
+        let value = NSMutableAttributedString()
+        if !prefix.isEmpty {
+            value.append(NSAttributedString(string: prefix, attributes: [
+                .font: valueFont,
+                .foregroundColor: palette.track.nsColor,
+            ]))
+        }
+        value.append(NSAttributedString(string: state.value, attributes: [
             .font: valueFont,
             .foregroundColor: (state.idle ? palette.secondary : palette.primary).nsColor,
-        ])
+        ]))
         let width = value.size().width
         let valueX = layout.valueX + max(0, layout.valueWidth - width)
         value.draw(at: CGPoint(x: valueX, y: layout.baseline - valueFont.ascender))

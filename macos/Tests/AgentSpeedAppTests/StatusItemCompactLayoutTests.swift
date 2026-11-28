@@ -37,4 +37,15 @@ struct StatusItemCompactLayoutTests {
         #expect(glyphOnly.valueWidth == 0)
         #expect(glyphOnly.length < (lengths.first ?? 0))
     }
+
+    @Test func leadingZeroPlaceholderPadsOnlyOneAndTwoDigitIntegers() {
+        let slot = StatusItemLayout.minimumTokenValueWidth
+        #expect(StatusItemArtist.leadingZeroPrefix(for: "0", slotWidth: slot) == "00")
+        #expect(StatusItemArtist.leadingZeroPrefix(for: "69", slotWidth: slot) == "0")
+        #expect(StatusItemArtist.leadingZeroPrefix(for: "120", slotWidth: slot) == "")
+        #expect(StatusItemArtist.leadingZeroPrefix(for: "4.5", slotWidth: slot) == "")
+        #expect(StatusItemArtist.leadingZeroPrefix(for: "1.20k", slotWidth: slot) == "")
+        #expect(StatusItemArtist.leadingZeroPrefix(for: "–", slotWidth: slot) == "")
+        #expect(StatusItemArtist.leadingZeroPrefix(for: "$0.01", slotWidth: slot) == "")
+    }
 }
