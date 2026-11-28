@@ -28,7 +28,7 @@ struct MenuBarPreview: View {
                     showsUnit: settings.barShowsUnit,
                     value: value,
                     heat: HeatPalette.heat(value: value, redline: settings.redline),
-                    unit: model.l10n("unit.tokS"),
+                    unit: StatusItemValue.compactTokenUnit,
                     dark: dark
                 )
                 Group {

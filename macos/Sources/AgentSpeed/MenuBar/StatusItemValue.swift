@@ -5,9 +5,12 @@ import Foundation
 /// cost rate (`0.0042` · `US$/s`, or `$0.0042` with the unit hidden; `≥` when partly priced, `–` when nothing is).
 @MainActor
 enum StatusItemValue {
+    /// Short menu bar unit so the status item takes less horizontal space while keeping the unit readable.
+    static let compactTokenUnit = "tps"
+
     static func current(_ model: AppModel) -> (text: String, unit: String) {
         guard let money = money(model) else {
-            return (SpeedFormat.speed(model.gauge.readoutValue), model.l10n("unit.tokS"))
+            return (SpeedFormat.speed(model.gauge.readoutValue), Self.compactTokenUnit)
         }
         if money.unknown { return ("–", money.unit) }
         let number = model.settings.barShowsUnit ? money.number : money.inline

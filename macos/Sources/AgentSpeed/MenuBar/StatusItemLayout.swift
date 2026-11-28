@@ -8,11 +8,11 @@ struct StatusItemLayout: Equatable {
     /// About 1.2 × the value's cap height (DESIGN section 3).
     static let glyphDiameter: CGFloat = 13
     static let glyphLineWidth: CGFloat = 1.75
-    /// Inset at both ends, matching the room native extras leave around their content.
-    static let padding: CGFloat = 4
+    /// Minimal inset at both ends; macOS already applies outer spacing and selection padding around status items.
+    static let padding: CGFloat = 2
     /// Space between the ring and the value (the digits' side bearing adds about a point).
-    static let glyphGap: CGFloat = 4
-    static let unitGap: CGFloat = 3
+    static let glyphGap: CGFloat = 3
+    static let unitGap: CGFloat = 2
 
     let showsGlyph: Bool
     let showsValue: Bool
@@ -45,7 +45,7 @@ struct StatusItemLayout: Equatable {
         self.init(
             mode: model.settings.barMode,
             showsUnit: model.settings.barShowsUnit,
-            unit: unit ?? model.l10n("unit.tokS"),
+            unit: unit ?? StatusItemValue.compactTokenUnit,
             valueWidth: valueWidth,
             height: Self.barHeight
         )
