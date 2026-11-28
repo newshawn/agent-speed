@@ -8,7 +8,7 @@ struct StatusItemLayout: Equatable {
     static let stackedValueSize: CGFloat = 10.5
     static let stackedUnitSize: CGFloat = 7
     static let stackedUnitKern: CGFloat = 0.35
-    static let stackedLineGap: CGFloat = 2
+    static let stackedLineGap: CGFloat = 3
     /// About 1.2 × the value's cap height (DESIGN section 3).
     static let glyphDiameter: CGFloat = 13
     static let glyphLineWidth: CGFloat = 1.75
@@ -95,7 +95,7 @@ struct StatusItemLayout: Equatable {
     }
 
     static func stackedLineGap(scale: CGFloat) -> CGFloat {
-        clampedScale(scale) >= 1.15 ? 1.5 : stackedLineGap
+        clampedScale(scale) >= 1.30 ? 2.5 : stackedLineGap
     }
 
     static func glyphDiameter(scale: CGFloat) -> CGFloat {

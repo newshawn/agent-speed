@@ -117,7 +117,7 @@ private struct StatusItemSample: View {
             }
             if mode.showsValue {
                 if showsUnit && unit == StatusItemValue.compactTokenUnit {
-                    VStack(spacing: 0.5) {
+                    VStack(spacing: 1.5) {
                         Text(SpeedFormat.speed(value))
                             .font(Font(StatusItemLayout.stackedValueFont(scale: scale) as CTFont))
                         Text(unit)
