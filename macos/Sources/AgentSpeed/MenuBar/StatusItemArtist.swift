@@ -82,34 +82,18 @@ enum StatusItemArtist {
         context.strokePath()
     }
 
-    /// Leading zero placeholder for 1–2 digit integers so the ring and digits stay visually coupled
-    /// inside the reserved 3-digit slot instead of leaving an empty gap between them.
-    static func leadingZeroPrefix(for value: String, slotWidth: CGFloat) -> String {
-        guard slotWidth >= StatusItemLayout.minimumTokenValueWidth,
-              !value.isEmpty, value.count < 3,
-              value.allSatisfy({ $0.isASCII && $0.isNumber }) else {
-            return ""
-        }
-        return String(repeating: "0", count: 3 - value.count)
-    }
-
     private static func drawText(_ state: StatusItemState, palette: StatusItemPalette, layout: StatusItemLayout) {
-        let valueFont = StatusItemLayout.valueFont
-        let prefix = leadingZeroPrefix(for: state.value, slotWidth: layout.valueWidth)
-        let value = NSMutableAttributedString()
-        if !prefix.isEmpty {
-            value.append(NSAttributedString(string: prefix, attributes: [
-                .font: valueFont,
-                .foregroundColor: palette.track.nsColor,
-            ]))
+        if layout.usesStackedUnit {
+            drawStackedText(state, palette: palette, layout: layout)
+            return
         }
-        value.append(NSAttributedString(string: state.value, attributes: [
+        let valueFont = StatusItemLayout.valueFont
+        let value = NSAttributedString(string: state.value, attributes: [
             .font: valueFont,
             .foregroundColor: (state.idle ? palette.secondary : palette.primary).nsColor,
-        ]))
+        ])
         let width = value.size().width
-        let valueX = layout.valueX + max(0, layout.valueWidth - width)
-        value.draw(at: CGPoint(x: valueX, y: layout.baseline - valueFont.ascender))
+        value.draw(at: CGPoint(x: layout.valueX, y: layout.baseline - valueFont.ascender))
 
         guard let unit = layout.unit else { return }
         let unitFont = StatusItemLayout.unitFont
@@ -117,6 +101,32 @@ enum StatusItemArtist {
             .font: unitFont,
             .foregroundColor: palette.secondary.nsColor,
         ])
-        text.draw(at: CGPoint(x: layout.valueX + layout.valueWidth + StatusItemLayout.unitGap, y: layout.baseline - unitFont.ascender))
+        text.draw(at: CGPoint(x: layout.valueX + width + StatusItemLayout.unitGap, y: layout.baseline - unitFont.ascender))
+    }
+
+    /// Compact 2-line iStat-style stack: speed centered on top, uppercase `TPS` centered underneath.
+    private static func drawStackedText(_ state: StatusItemState, palette: StatusItemPalette, layout: StatusItemLayout) {
+        let valueFont = StatusItemLayout.stackedValueFont
+        let unitFont = StatusItemLayout.stackedUnitFont
+        let value = NSAttributedString(string: state.value, attributes: [
+            .font: valueFont,
+            .foregroundColor: (state.idle ? palette.secondary : palette.primary).nsColor,
+        ])
+        let unit = NSAttributedString(string: layout.unit ?? "", attributes: [
+            .font: unitFont,
+            .kern: StatusItemLayout.stackedUnitKern,
+            .foregroundColor: palette.secondary.nsColor,
+        ])
+        let topCap = valueFont.capHeight
+        let bottomCap = unitFont.capHeight
+        let totalInk = topCap + StatusItemLayout.stackedLineGap + bottomCap
+        let stackTop = (((layout.height - totalInk) / 2) * 2).rounded() / 2
+        let topBaseline = stackTop + topCap
+        let bottomBaseline = topBaseline + StatusItemLayout.stackedLineGap + bottomCap
+
+        let valueX = layout.valueX + (((layout.valueWidth - value.size().width) / 2) * 2).rounded() / 2
+        let unitX = layout.valueX + (((layout.valueWidth - unit.size().width) / 2) * 2).rounded() / 2
+        value.draw(at: CGPoint(x: valueX, y: topBaseline - valueFont.ascender))
+        unit.draw(at: CGPoint(x: unitX, y: bottomBaseline - unitFont.ascender))
     }
 }

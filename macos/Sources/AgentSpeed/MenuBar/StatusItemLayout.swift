@@ -5,6 +5,10 @@ import AppKit
 struct StatusItemLayout: Equatable {
     static let valueSize: CGFloat = 13
     static let unitSize: CGFloat = 10
+    static let stackedValueSize: CGFloat = 10.5
+    static let stackedUnitSize: CGFloat = 7
+    static let stackedUnitKern: CGFloat = 0.35
+    static let stackedLineGap: CGFloat = 2
     /// About 1.2 × the value's cap height (DESIGN section 3).
     static let glyphDiameter: CGFloat = 13
     static let glyphLineWidth: CGFloat = 1.75
@@ -34,9 +38,14 @@ struct StatusItemLayout: Equatable {
     init(mode: BarDisplayMode, showsUnit: Bool, unit: String, valueWidth: CGFloat, height: CGFloat) {
         showsGlyph = mode.showsGlyph
         showsValue = mode.showsValue
-        self.unit = mode.showsValue && showsUnit && !unit.isEmpty ? unit : nil
-        self.valueWidth = showsValue ? valueWidth : 0
-        unitWidth = self.unit.map { Self.width(of: $0, font: Self.unitFont) } ?? 0
+        let resolvedUnit = mode.showsValue && showsUnit && !unit.isEmpty ? unit : nil
+        let stacked = resolvedUnit == StatusItemValue.compactTokenUnit
+        self.unit = resolvedUnit
+        self.valueWidth = showsValue ? (stacked ? max(valueWidth, Self.minimumStackedTokenWidth) : valueWidth) : 0
+        unitWidth = resolvedUnit.map {
+            stacked ? Self.width(of: $0, font: Self.stackedUnitFont, kern: Self.stackedUnitKern)
+                    : Self.width(of: $0, font: Self.unitFont)
+        } ?? 0
         self.height = height
     }
 
@@ -57,15 +66,29 @@ struct StatusItemLayout: Equatable {
 
     static var valueFont: NSFont { .monospacedDigitSystemFont(ofSize: valueSize, weight: .regular) }
     static var unitFont: NSFont { .systemFont(ofSize: unitSize, weight: .medium) }
+    static var stackedValueFont: NSFont { .monospacedDigitSystemFont(ofSize: stackedValueSize, weight: .semibold) }
+    static var stackedUnitFont: NSFont { .systemFont(ofSize: stackedUnitSize, weight: .semibold) }
 
     /// Drawn width of a formatted value. Digits are tabular, so it only changes with the digit count or format.
     static func valueWidth(of text: String) -> CGFloat {
         width(of: text, font: valueFont)
     }
 
-    /// Reserved 3-digit width for token speeds (`0`–`999`, `9.9`) so 1/2/3-digit changes never shift neighbors.
-    static var minimumTokenValueWidth: CGFloat {
-        valueWidth(of: "888")
+    static func stackedValueWidth(of text: String) -> CGFloat {
+        width(of: text, font: stackedValueFont)
+    }
+
+    /// Fixed 3-digit column width for stacked token speed + `TPS` so 0–999 transitions never shift neighbors.
+    static var minimumStackedTokenWidth: CGFloat {
+        max(
+            stackedValueWidth(of: "888"),
+            width(of: StatusItemValue.compactTokenUnit, font: stackedUnitFont, kern: stackedUnitKern)
+        )
+    }
+
+    /// Whether the unit sits underneath the value in a compact 2-line iStat-style column.
+    var usesStackedUnit: Bool {
+        showsValue && unit == StatusItemValue.compactTokenUnit
     }
 
     /// Total status item length.
@@ -74,7 +97,7 @@ struct StatusItemLayout: Equatable {
         if showsGlyph { width += Self.glyphDiameter }
         if showsGlyph && showsValue { width += Self.glyphGap }
         if showsValue { width += valueWidth }
-        if unit != nil { width += Self.unitGap + unitWidth }
+        if unit != nil && !usesStackedUnit { width += Self.unitGap + unitWidth }
         return width + secondaryWidth + readoutWidth
     }
 
@@ -89,7 +112,7 @@ struct StatusItemLayout: Equatable {
 
     /// Ring center, optically centered on the digits (their cap height) next to it, or on the bar alone.
     var glyphCenter: CGPoint {
-        let y = showsValue ? baseline - Self.valueFont.capHeight / 2 : height / 2
+        let y = (showsValue && !usesStackedUnit) ? baseline - Self.valueFont.capHeight / 2 : height / 2
         return CGPoint(x: Self.padding + Self.glyphDiameter / 2, y: (y * 2).rounded() / 2)
     }
 
@@ -103,8 +126,10 @@ struct StatusItemLayout: Equatable {
         (height / 2 + Self.valueFont.capHeight / 2 - 0.5).rounded()
     }
 
-    private static func width(of string: String, font: NSFont) -> CGFloat {
-        (string as NSString).size(withAttributes: [.font: font]).width.rounded(.up)
+    private static func width(of string: String, font: NSFont, kern: CGFloat = 0) -> CGFloat {
+        var attrs: [NSAttributedString.Key: Any] = [.font: font]
+        if kern != 0 { attrs[.kern] = kern }
+        return (string as NSString).size(withAttributes: attrs).width.rounded(.up)
     }
 }
 

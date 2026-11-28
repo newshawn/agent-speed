@@ -88,10 +88,12 @@ final class StatusItemRenderer {
 
     /// The current state, with the value's room decided by the width governor.
     private func state(at time: TimeInterval) -> StatusItemState {
-        let rawNeeded = StatusItemLayout.valueWidth(of: StatusItemValue.current(model).text)
-        let needed = model.settings.liveUnit == .tokens
-            ? max(StatusItemLayout.minimumTokenValueWidth, rawNeeded)
-            : rawNeeded
+        let (text, unit) = StatusItemValue.current(model)
+        let isStacked = model.settings.liveUnit == .tokens && model.settings.barShowsUnit
+            && unit == StatusItemValue.compactTokenUnit
+        let needed = isStacked
+            ? max(StatusItemLayout.minimumStackedTokenWidth, StatusItemLayout.stackedValueWidth(of: text))
+            : StatusItemLayout.valueWidth(of: text)
         _ = widthGovernor.update(needed: needed, now: time)
         _ = secondaryGovernor.update(needed: StatusItemSecondary(model: model)?.numberWidth ?? 0, now: time)
         _ = intelligenceGovernor.update(needed: StatusItemIntelligence(model: model)?.cell ?? 0, now: time)

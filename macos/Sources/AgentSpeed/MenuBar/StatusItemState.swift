@@ -24,10 +24,11 @@ struct StatusItemState: Equatable {
          intelligenceWidth: CGFloat? = nil) {
         let gauge = model.gauge
         let (text, unit) = StatusItemValue.current(model)
-        let rawWidth = valueWidth ?? StatusItemLayout.valueWidth(of: text)
-        let resolvedWidth = model.settings.liveUnit == .tokens
-            ? max(StatusItemLayout.minimumTokenValueWidth, rawWidth)
-            : rawWidth
+        let isStacked = model.settings.liveUnit == .tokens && model.settings.barShowsUnit
+            && unit == StatusItemValue.compactTokenUnit
+        let rawWidth = valueWidth ?? (isStacked ? StatusItemLayout.stackedValueWidth(of: text)
+                                                : StatusItemLayout.valueWidth(of: text))
+        let resolvedWidth = isStacked ? max(StatusItemLayout.minimumStackedTokenWidth, rawWidth) : rawWidth
         layout = StatusItemLayout(model: model, unit: unit, valueWidth: resolvedWidth)
         colored = model.settings.barColoredGlyph
         ring = layout.showsGlyph ? Ring(gauge: gauge, at: time, colored: colored, flickers: Self.flickers(model)) : .hidden

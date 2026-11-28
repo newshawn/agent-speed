@@ -111,17 +111,30 @@ private struct StatusItemSample: View {
                 .transition(.opacity)
             }
             if mode.showsValue {
-                HStack(alignment: .firstTextBaseline, spacing: StatusItemLayout.unitGap) {
-                    Text(SpeedFormat.speed(value))
-                        .font(Font(StatusItemLayout.valueFont as CTFont))
-                    if showsUnit {
+                if showsUnit && unit == StatusItemValue.compactTokenUnit {
+                    VStack(spacing: 0.5) {
+                        Text(SpeedFormat.speed(value))
+                            .font(Font(StatusItemLayout.stackedValueFont as CTFont))
                         Text(unit)
-                            .font(Font(StatusItemLayout.unitFont as CTFont))
+                            .font(Font(StatusItemLayout.stackedUnitFont as CTFont))
+                            .tracking(StatusItemLayout.stackedUnitKern)
                             .foregroundStyle(.secondary)
-                            .transition(.opacity)
                     }
+                    .frame(minWidth: StatusItemLayout.minimumStackedTokenWidth)
+                    .transition(.opacity)
+                } else {
+                    HStack(alignment: .firstTextBaseline, spacing: StatusItemLayout.unitGap) {
+                        Text(SpeedFormat.speed(value))
+                            .font(Font(StatusItemLayout.valueFont as CTFont))
+                        if showsUnit {
+                            Text(unit)
+                                .font(Font(StatusItemLayout.unitFont as CTFont))
+                                .foregroundStyle(.secondary)
+                                .transition(.opacity)
+                        }
+                    }
+                    .transition(.opacity)
                 }
-                .transition(.opacity)
             }
         }
         .padding(.horizontal, 6)
