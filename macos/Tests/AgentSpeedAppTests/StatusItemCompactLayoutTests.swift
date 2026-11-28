@@ -37,4 +37,21 @@ struct StatusItemCompactLayoutTests {
         #expect(!glyphOnly.usesStackedUnit)
         #expect(glyphOnly.length < (lengths.first ?? 0))
     }
+
+    @Test func barScaleAdjustsStackedWidthMonotonicallyWhileKeepingZeroTo999Locked() {
+        let small = StatusItemLayout(mode: .glyphValue, showsUnit: true, unit: StatusItemValue.compactTokenUnit,
+                                     valueWidth: StatusItemLayout.stackedValueWidth(of: "69", scale: 0.9), height: 24, scale: 0.9)
+        let defaultScale = StatusItemLayout(mode: .glyphValue, showsUnit: true, unit: StatusItemValue.compactTokenUnit,
+                                            valueWidth: StatusItemLayout.stackedValueWidth(of: "69", scale: 1.2), height: 24, scale: 1.2)
+        let large = StatusItemLayout(mode: .glyphValue, showsUnit: true, unit: StatusItemValue.compactTokenUnit,
+                                     valueWidth: StatusItemLayout.stackedValueWidth(of: "69", scale: 1.35), height: 24, scale: 1.35)
+        #expect(small.length < defaultScale.length)
+        #expect(defaultScale.length < large.length)
+
+        let lockedAtDefault = ["0", "6.4", "69", "128", "999"].map { text in
+            StatusItemLayout(mode: .glyphValue, showsUnit: true, unit: StatusItemValue.compactTokenUnit,
+                             valueWidth: StatusItemLayout.stackedValueWidth(of: text, scale: 1.2), height: 24, scale: 1.2).length
+        }
+        #expect(Set(lockedAtDefault).count == 1)
+    }
 }

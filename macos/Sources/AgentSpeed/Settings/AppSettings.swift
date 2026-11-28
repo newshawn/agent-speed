@@ -27,9 +27,25 @@ final class AppSettings {
         }
     }
 
+    static let barScaleRange: ClosedRange<Double> = 0.90...1.35
+    static let barScaleStep: Double = 0.05
+    static let defaultBarScale: Double = 1.20
+
+    static func snapBarScale(_ value: Double) -> Double {
+        let clamped = value.isFinite ? value.clamped(to: barScaleRange) : defaultBarScale
+        return ((clamped / barScaleStep).rounded() * barScaleStep).clamped(to: barScaleRange)
+    }
+
     var barMode: BarDisplayMode { didSet { store(barMode.rawValue, .barMode) } }
     var barColoredGlyph: Bool { didSet { store(barColoredGlyph, .barColoredGlyph) } }
     var barShowsUnit: Bool { didSet { store(barShowsUnit, .barShowsUnit) } }
+    var barScale: Double {
+        didSet {
+            let snapped = Self.snapBarScale(barScale)
+            if abs(snapped - barScale) > 1e-9 { barScale = snapped; return }
+            store(barScale, .barScale)
+        }
+    }
 
     /// The floating orbs' master switch (DESIGN 2b). The single-orb keys of earlier versions (`orbVisible`, `orbSize`,
     /// …) are only read once to migrate and never written again, so a downgrade restores the single orb.
@@ -155,6 +171,7 @@ final class AppSettings {
         barMode = BarDisplayMode(rawValue: defaults.string(forKey: Key.barMode.rawValue) ?? "") ?? .glyphValue
         barColoredGlyph = defaults.object(forKey: Key.barColoredGlyph.rawValue) as? Bool ?? true
         barShowsUnit = defaults.object(forKey: Key.barShowsUnit.rawValue) as? Bool ?? true
+        barScale = Self.snapBarScale(defaults.object(forKey: Key.barScale.rawValue) as? Double ?? Self.defaultBarScale)
         orbsVisible = defaults.object(forKey: Key.orbsVisible.rawValue) as? Bool
             ?? defaults.object(forKey: Key.orbVisible.rawValue) as? Bool ?? true
         orbNames = OrbNamesMode(rawValue: defaults.string(forKey: Key.orbNames.rawValue) ?? "") ?? .auto
@@ -338,7 +355,7 @@ final class AppSettings {
 
     private enum Key: String {
         case appearance, language, metric, redline, redlineTotal, redlineDefaultsMigrated
-        case barMode, barColoredGlyph, barShowsUnit
+        case barMode, barColoredGlyph, barShowsUnit, barScale
         case orbVisible, orbsVisible, orbNames
         case trafficEnabled, trafficIncludeTools, trafficUnit, barTraffic, barIntelligence, barSecondary
         case agentsExpanded

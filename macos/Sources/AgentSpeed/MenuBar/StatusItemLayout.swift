@@ -26,6 +26,8 @@ struct StatusItemLayout: Equatable {
     let valueWidth: CGFloat
     let unitWidth: CGFloat
     let height: CGFloat
+    /// User-configurable scale factor (`0.90...1.35`) for menu bar typography and gauge diameter.
+    let scale: CGFloat
     /// The money block's width (gap included); 0 without it.
     var secondaryWidth: CGFloat = 0
     /// The network block's width (gap included); 0 without it.
@@ -35,16 +37,18 @@ struct StatusItemLayout: Equatable {
     /// Both readout blocks (DESIGN 10): fixed widths, so the item never changes width with their values.
     var readoutWidth: CGFloat { trafficWidth + intelligenceWidth }
 
-    init(mode: BarDisplayMode, showsUnit: Bool, unit: String, valueWidth: CGFloat, height: CGFloat) {
+    init(mode: BarDisplayMode, showsUnit: Bool, unit: String, valueWidth: CGFloat, height: CGFloat, scale: CGFloat = 1) {
+        let s = Self.clampedScale(scale)
+        self.scale = s
         showsGlyph = mode.showsGlyph
         showsValue = mode.showsValue
         let resolvedUnit = mode.showsValue && showsUnit && !unit.isEmpty ? unit : nil
         let stacked = resolvedUnit == StatusItemValue.compactTokenUnit
         self.unit = resolvedUnit
-        self.valueWidth = showsValue ? (stacked ? max(valueWidth, Self.minimumStackedTokenWidth) : valueWidth) : 0
+        self.valueWidth = showsValue ? (stacked ? max(valueWidth, Self.minimumStackedTokenWidth(scale: s)) : valueWidth) : 0
         unitWidth = resolvedUnit.map {
-            stacked ? Self.width(of: $0, font: Self.stackedUnitFont, kern: Self.stackedUnitKern)
-                    : Self.width(of: $0, font: Self.unitFont)
+            stacked ? Self.width(of: $0, font: Self.stackedUnitFont(scale: s), kern: Self.stackedUnitKern)
+                    : Self.width(of: $0, font: Self.unitFont(scale: s))
         } ?? 0
         self.height = height
     }
@@ -56,7 +60,8 @@ struct StatusItemLayout: Equatable {
             showsUnit: model.settings.barShowsUnit,
             unit: unit ?? StatusItemValue.compactTokenUnit,
             valueWidth: valueWidth,
-            height: Self.barHeight
+            height: Self.barHeight,
+            scale: CGFloat(model.settings.barScale)
         )
     }
 
@@ -64,27 +69,71 @@ struct StatusItemLayout: Equatable {
     @MainActor
     static var barHeight: CGFloat { max(22, NSStatusBar.system.thickness.rounded()) }
 
-    static var valueFont: NSFont { .monospacedDigitSystemFont(ofSize: valueSize, weight: .regular) }
-    static var unitFont: NSFont { .systemFont(ofSize: unitSize, weight: .medium) }
-    static var stackedValueFont: NSFont { .monospacedDigitSystemFont(ofSize: stackedValueSize, weight: .semibold) }
-    static var stackedUnitFont: NSFont { .systemFont(ofSize: stackedUnitSize, weight: .semibold) }
-
-    /// Drawn width of a formatted value. Digits are tabular, so it only changes with the digit count or format.
-    static func valueWidth(of text: String) -> CGFloat {
-        width(of: text, font: valueFont)
+    static func clampedScale(_ raw: CGFloat) -> CGFloat {
+        raw.isFinite ? raw.clamped(to: 0.9...1.35) : 1
     }
 
-    static func stackedValueWidth(of text: String) -> CGFloat {
-        width(of: text, font: stackedValueFont)
+    static var valueFont: NSFont { valueFont(scale: 1) }
+    static var unitFont: NSFont { unitFont(scale: 1) }
+    static var stackedValueFont: NSFont { stackedValueFont(scale: 1) }
+    static var stackedUnitFont: NSFont { stackedUnitFont(scale: 1) }
+
+    static func valueFont(scale: CGFloat) -> NSFont {
+        .monospacedDigitSystemFont(ofSize: valueSize * min(clampedScale(scale), 1.15), weight: .regular)
+    }
+
+    static func unitFont(scale: CGFloat) -> NSFont {
+        .systemFont(ofSize: unitSize * min(clampedScale(scale), 1.15), weight: .medium)
+    }
+
+    static func stackedValueFont(scale: CGFloat) -> NSFont {
+        .monospacedDigitSystemFont(ofSize: stackedValueSize * clampedScale(scale), weight: .semibold)
+    }
+
+    static func stackedUnitFont(scale: CGFloat) -> NSFont {
+        .systemFont(ofSize: stackedUnitSize * clampedScale(scale), weight: .semibold)
+    }
+
+    static func stackedLineGap(scale: CGFloat) -> CGFloat {
+        clampedScale(scale) >= 1.15 ? 1.5 : stackedLineGap
+    }
+
+    static func glyphDiameter(scale: CGFloat) -> CGFloat {
+        min(16, ((glyphDiameter * clampedScale(scale)) * 2).rounded() / 2)
+    }
+
+    static func glyphLineWidth(scale: CGFloat) -> CGFloat {
+        let scaled = glyphLineWidth * (1 + (clampedScale(scale) - 1) * 0.5)
+        return (scaled * 4).rounded() / 4
+    }
+
+    /// Drawn width of a formatted value. Digits are tabular, so it only changes with the digit count or format.
+    static func valueWidth(of text: String, scale: CGFloat = 1) -> CGFloat {
+        width(of: text, font: valueFont(scale: scale))
+    }
+
+    static func stackedValueWidth(of text: String, scale: CGFloat = 1) -> CGFloat {
+        width(of: text, font: stackedValueFont(scale: scale))
     }
 
     /// Fixed 3-digit column width for stacked token speed + `TPS` so 0–999 transitions never shift neighbors.
-    static var minimumStackedTokenWidth: CGFloat {
-        max(
-            stackedValueWidth(of: "888"),
-            width(of: StatusItemValue.compactTokenUnit, font: stackedUnitFont, kern: stackedUnitKern)
+    static func minimumStackedTokenWidth(scale: CGFloat = 1) -> CGFloat {
+        let s = clampedScale(scale)
+        return max(
+            stackedValueWidth(of: "888", scale: s),
+            width(of: StatusItemValue.compactTokenUnit, font: stackedUnitFont(scale: s), kern: stackedUnitKern)
         )
     }
+
+    static var minimumStackedTokenWidth: CGFloat { minimumStackedTokenWidth(scale: 1) }
+
+    var resolvedGlyphDiameter: CGFloat { Self.glyphDiameter(scale: scale) }
+    var resolvedGlyphLineWidth: CGFloat { Self.glyphLineWidth(scale: scale) }
+    var resolvedValueFont: NSFont { Self.valueFont(scale: scale) }
+    var resolvedUnitFont: NSFont { Self.unitFont(scale: scale) }
+    var resolvedStackedValueFont: NSFont { Self.stackedValueFont(scale: scale) }
+    var resolvedStackedUnitFont: NSFont { Self.stackedUnitFont(scale: scale) }
+    var resolvedStackedLineGap: CGFloat { Self.stackedLineGap(scale: scale) }
 
     /// Whether the unit sits underneath the value in a compact 2-line iStat-style column.
     var usesStackedUnit: Bool {
@@ -94,7 +143,7 @@ struct StatusItemLayout: Equatable {
     /// Total status item length.
     var length: CGFloat {
         var width = Self.padding * 2
-        if showsGlyph { width += Self.glyphDiameter }
+        if showsGlyph { width += resolvedGlyphDiameter }
         if showsGlyph && showsValue { width += Self.glyphGap }
         if showsValue { width += valueWidth }
         if unit != nil && !usesStackedUnit { width += Self.unitGap + unitWidth }
@@ -112,18 +161,18 @@ struct StatusItemLayout: Equatable {
 
     /// Ring center, optically centered on the digits (their cap height) next to it, or on the bar alone.
     var glyphCenter: CGPoint {
-        let y = (showsValue && !usesStackedUnit) ? baseline - Self.valueFont.capHeight / 2 : height / 2
-        return CGPoint(x: Self.padding + Self.glyphDiameter / 2, y: (y * 2).rounded() / 2)
+        let y = (showsValue && !usesStackedUnit) ? baseline - resolvedValueFont.capHeight / 2 : height / 2
+        return CGPoint(x: Self.padding + resolvedGlyphDiameter / 2, y: (y * 2).rounded() / 2)
     }
 
     /// Left edge of the value.
     var valueX: CGFloat {
-        Self.padding + (showsGlyph ? Self.glyphDiameter + Self.glyphGap : 0)
+        Self.padding + (showsGlyph ? resolvedGlyphDiameter + Self.glyphGap : 0)
     }
 
     /// Text baseline measured from the top. Native menu bar titles sit half a point above true cap-height centering.
     var baseline: CGFloat {
-        (height / 2 + Self.valueFont.capHeight / 2 - 0.5).rounded()
+        (height / 2 + resolvedValueFont.capHeight / 2 - 0.5).rounded()
     }
 
     private static func width(of string: String, font: NSFont, kern: CGFloat = 0) -> CGFloat {

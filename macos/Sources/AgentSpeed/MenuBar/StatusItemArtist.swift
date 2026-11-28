@@ -54,8 +54,8 @@ enum StatusItemArtist {
     }
 
     private static func drawGauge(_ state: StatusItemState, palette: StatusItemPalette, layout: StatusItemLayout, in context: CGContext) {
-        let lineWidth = StatusItemLayout.glyphLineWidth
-        let radius = (StatusItemLayout.glyphDiameter - lineWidth) / 2
+        let lineWidth = layout.resolvedGlyphLineWidth
+        let radius = (layout.resolvedGlyphDiameter - lineWidth) / 2
         let center = layout.glyphCenter
         let start = 135 * CGFloat.pi / 180
         context.saveGState()
@@ -87,7 +87,7 @@ enum StatusItemArtist {
             drawStackedText(state, palette: palette, layout: layout)
             return
         }
-        let valueFont = StatusItemLayout.valueFont
+        let valueFont = layout.resolvedValueFont
         let value = NSAttributedString(string: state.value, attributes: [
             .font: valueFont,
             .foregroundColor: (state.idle ? palette.secondary : palette.primary).nsColor,
@@ -96,7 +96,7 @@ enum StatusItemArtist {
         value.draw(at: CGPoint(x: layout.valueX, y: layout.baseline - valueFont.ascender))
 
         guard let unit = layout.unit else { return }
-        let unitFont = StatusItemLayout.unitFont
+        let unitFont = layout.resolvedUnitFont
         let text = NSAttributedString(string: unit, attributes: [
             .font: unitFont,
             .foregroundColor: palette.secondary.nsColor,
@@ -106,8 +106,9 @@ enum StatusItemArtist {
 
     /// Compact 2-line iStat-style stack: speed centered on top, uppercase `TPS` centered underneath.
     private static func drawStackedText(_ state: StatusItemState, palette: StatusItemPalette, layout: StatusItemLayout) {
-        let valueFont = StatusItemLayout.stackedValueFont
-        let unitFont = StatusItemLayout.stackedUnitFont
+        let valueFont = layout.resolvedStackedValueFont
+        let unitFont = layout.resolvedStackedUnitFont
+        let lineGap = layout.resolvedStackedLineGap
         let value = NSAttributedString(string: state.value, attributes: [
             .font: valueFont,
             .foregroundColor: (state.idle ? palette.secondary : palette.primary).nsColor,
@@ -119,10 +120,10 @@ enum StatusItemArtist {
         ])
         let topCap = valueFont.capHeight
         let bottomCap = unitFont.capHeight
-        let totalInk = topCap + StatusItemLayout.stackedLineGap + bottomCap
+        let totalInk = topCap + lineGap + bottomCap
         let stackTop = (((layout.height - totalInk) / 2) * 2).rounded() / 2
         let topBaseline = stackTop + topCap
-        let bottomBaseline = topBaseline + StatusItemLayout.stackedLineGap + bottomCap
+        let bottomBaseline = topBaseline + lineGap + bottomCap
 
         let valueX = layout.valueX + (((layout.valueWidth - value.size().width) / 2) * 2).rounded() / 2
         let unitX = layout.valueX + (((layout.valueWidth - unit.size().width) / 2) * 2).rounded() / 2

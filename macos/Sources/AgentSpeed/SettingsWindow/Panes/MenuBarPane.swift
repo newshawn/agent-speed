@@ -25,6 +25,21 @@ struct MenuBarPane: View {
                 SettingToggle(title: l10n("settings.bar.unit"), isOn: $settings.barShowsUnit)
                     .disabled(!settings.barMode.showsValue)
 
+                SliderRow(
+                    title: barScaleLabel(for: l10n.language),
+                    value: Binding(
+                        get: { settings.barScale },
+                        set: { settings.barScale = AppSettings.snapBarScale($0) }
+                    ),
+                    range: AppSettings.barScaleRange,
+                    step: AppSettings.barScaleStep,
+                    valueText: "\(Int((settings.barScale * 100).rounded()))%"
+                ) {
+                    SliderEndDot(size: 5, opacity: 0.45)
+                } maximumLabel: {
+                    SliderEndDot(size: 10, opacity: 0.85)
+                }
+
                 BarTrafficPicker(model: model)
                     .disabled(settings.barMode == .glyph)
 
@@ -38,6 +53,15 @@ struct MenuBarPane: View {
             }
         }
         .settingsForm()
+    }
+
+    private func barScaleLabel(for language: AppLanguage) -> String {
+        switch language {
+        case .zhHans: "菜单栏缩放"
+        case .zhHant: "選單列縮放"
+        case .ja: "メニューバー拡大率"
+        case .en: "Menu bar scale"
+        }
     }
 }
 
