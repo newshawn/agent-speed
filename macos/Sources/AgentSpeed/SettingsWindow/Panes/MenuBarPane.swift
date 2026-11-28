@@ -36,8 +36,6 @@ struct MenuBarPane: View {
             } footer: {
                 SectionFootnote(l10n("settings.liveUnit.hint"))
             }
-
-            SystemMenuBarSpacingSection(model: model)
         }
         .settingsForm()
     }

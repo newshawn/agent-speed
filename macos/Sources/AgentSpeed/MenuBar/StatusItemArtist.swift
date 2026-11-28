@@ -89,7 +89,8 @@ enum StatusItemArtist {
             .foregroundColor: (state.idle ? palette.secondary : palette.primary).nsColor,
         ])
         let width = value.size().width
-        value.draw(at: CGPoint(x: layout.valueX, y: layout.baseline - valueFont.ascender))
+        let valueX = layout.valueX + max(0, layout.valueWidth - width)
+        value.draw(at: CGPoint(x: valueX, y: layout.baseline - valueFont.ascender))
 
         guard let unit = layout.unit else { return }
         let unitFont = StatusItemLayout.unitFont
@@ -97,6 +98,6 @@ enum StatusItemArtist {
             .font: unitFont,
             .foregroundColor: palette.secondary.nsColor,
         ])
-        text.draw(at: CGPoint(x: layout.valueX + width + StatusItemLayout.unitGap, y: layout.baseline - unitFont.ascender))
+        text.draw(at: CGPoint(x: layout.valueX + layout.valueWidth + StatusItemLayout.unitGap, y: layout.baseline - unitFont.ascender))
     }
 }

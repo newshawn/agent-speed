@@ -63,6 +63,11 @@ struct StatusItemLayout: Equatable {
         width(of: text, font: valueFont)
     }
 
+    /// Reserved 3-digit width for token speeds (`0`–`999`, `9.9`) so 1/2/3-digit changes never shift neighbors.
+    static var minimumTokenValueWidth: CGFloat {
+        valueWidth(of: "888")
+    }
+
     /// Total status item length.
     var length: CGFloat {
         var width = Self.padding * 2
