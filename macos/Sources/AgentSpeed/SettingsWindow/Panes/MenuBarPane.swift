@@ -26,18 +26,29 @@ struct MenuBarPane: View {
                     .disabled(!settings.barMode.showsValue)
 
                 SliderRow(
-                    title: barScaleLabel(for: l10n.language),
+                    title: fontSizeLabel(for: l10n.language),
                     value: Binding(
-                        get: { settings.barScale },
-                        set: { settings.barScale = AppSettings.snapBarScale($0) }
+                        get: { settings.barFontSize },
+                        set: { settings.barFontSize = AppSettings.snapBarFontSize($0) }
                     ),
-                    range: AppSettings.barScaleRange,
-                    step: AppSettings.barScaleStep,
-                    valueText: "\(Int((settings.barScale * 100).rounded()))%"
+                    range: AppSettings.barFontSizeRange,
+                    step: AppSettings.barFontSizeStep,
+                    valueText: formatPointSize(settings.barFontSize)
                 ) {
                     SliderEndDot(size: 5, opacity: 0.45)
                 } maximumLabel: {
                     SliderEndDot(size: 10, opacity: 0.85)
+                }
+
+                SegmentedRow(
+                    title: fontWeightLabel(for: l10n.language),
+                    selection: $settings.barFontWeight,
+                    segmentWidth: 68,
+                    count: BarFontWeight.allCases.count
+                ) {
+                    ForEach(BarFontWeight.allCases) { weight in
+                        Text(weightTitle(weight, language: l10n.language)).tag(weight)
+                    }
                 }
 
                 BarTrafficPicker(model: model)
@@ -55,12 +66,49 @@ struct MenuBarPane: View {
         .settingsForm()
     }
 
-    private func barScaleLabel(for language: AppLanguage) -> String {
+    private func formatPointSize(_ size: Double) -> String {
+        let rounded = (size * 10).rounded() / 10
+        return rounded.truncatingRemainder(dividingBy: 1) == 0
+            ? "\(Int(rounded)) pt"
+            : String(format: "%.1f pt", rounded)
+    }
+
+    private func fontSizeLabel(for language: AppLanguage) -> String {
         switch language {
-        case .zhHans: "菜单栏缩放"
-        case .zhHant: "選單列縮放"
-        case .ja: "メニューバー拡大率"
-        case .en: "Menu bar scale"
+        case .zhHans: "字体大小"
+        case .zhHant: "字體大小"
+        case .ja: "フォントサイズ"
+        case .en: "Font size"
+        }
+    }
+
+    private func fontWeightLabel(for language: AppLanguage) -> String {
+        switch language {
+        case .zhHans: "字体粗细"
+        case .zhHant: "字體粗細"
+        case .ja: "フォントの太さ"
+        case .en: "Font weight"
+        }
+    }
+
+    private func weightTitle(_ weight: BarFontWeight, language: AppLanguage) -> String {
+        switch (weight, language) {
+        case (.regular, .zhHans): "常规"
+        case (.regular, .zhHant): "常規"
+        case (.regular, .ja): "標準"
+        case (.regular, .en): "Regular"
+        case (.medium, .zhHans): "中等"
+        case (.medium, .zhHant): "中等"
+        case (.medium, .ja): "中"
+        case (.medium, .en): "Medium"
+        case (.semibold, .zhHans): "半粗"
+        case (.semibold, .zhHant): "半粗"
+        case (.semibold, .ja): "中太"
+        case (.semibold, .en): "Semibold"
+        case (.bold, .zhHans): "粗体"
+        case (.bold, .zhHant): "粗體"
+        case (.bold, .ja): "太字"
+        case (.bold, .en): "Bold"
         }
     }
 }

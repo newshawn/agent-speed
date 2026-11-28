@@ -47,6 +47,12 @@ enum BarDisplayMode: String, CaseIterable, Identifiable, Sendable {
     var showsValue: Bool { self != .glyph }
 }
 
+enum BarFontWeight: String, CaseIterable, Identifiable, Sendable {
+    case regular, medium, semibold, bold
+
+    var id: String { rawValue }
+}
+
 /// The unit of traffic rates (DESIGN 10): bytes (default) or bits; totals are always bytes.
 enum TrafficUnit: String, CaseIterable, Identifiable, Sendable {
     case bytes, bits

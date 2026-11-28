@@ -5,7 +5,7 @@ import Testing
 @Suite("Compact stacked menu bar layout")
 @MainActor
 struct StatusItemCompactLayoutTests {
-    @Test func stackedTpsLayoutIsCompactAndSignificantlyNarrowerThanInlineTokS() {
+    @Test func stackedTpsLayoutIsCompactAndNarrowerThanInlineTokS() {
         #expect(StatusItemValue.compactTokenUnit == "TPS")
         let stacked = StatusItemLayout(mode: .glyphValue, showsUnit: true, unit: StatusItemValue.compactTokenUnit,
                                        valueWidth: StatusItemLayout.stackedValueWidth(of: "69"), height: 24)
@@ -14,7 +14,7 @@ struct StatusItemCompactLayoutTests {
         #expect(stacked.usesStackedUnit)
         #expect(!inlineTokS.usesStackedUnit)
         #expect(stacked.length < inlineTokS.length)
-        #expect(stacked.length <= 45)
+        #expect(stacked.length <= 54)
     }
 
     @Test func oneToThreeDigitTokenSpeedsKeepFixedStackedWidthAndDoNotJitter() {
@@ -38,20 +38,26 @@ struct StatusItemCompactLayoutTests {
         #expect(glyphOnly.length < (lengths.first ?? 0))
     }
 
-    @Test func barScaleAdjustsStackedWidthMonotonicallyWhileKeepingZeroTo999Locked() {
+    @Test func customFontSizeAndWeightScaleMonotonicallyWithDefaultMatchingTickTick() {
         let small = StatusItemLayout(mode: .glyphValue, showsUnit: true, unit: StatusItemValue.compactTokenUnit,
-                                     valueWidth: StatusItemLayout.stackedValueWidth(of: "69", scale: 0.9), height: 24, scale: 0.9)
-        let defaultScale = StatusItemLayout(mode: .glyphValue, showsUnit: true, unit: StatusItemValue.compactTokenUnit,
-                                            valueWidth: StatusItemLayout.stackedValueWidth(of: "69", scale: 1.2), height: 24, scale: 1.2)
+                                     valueWidth: StatusItemLayout.stackedValueWidth(of: "69", fontSize: 9.0, weight: .regular),
+                                     height: 24, fontSize: 9.0, fontWeight: .regular)
+        let tickTickDefault = StatusItemLayout(mode: .glyphValue, showsUnit: true, unit: StatusItemValue.compactTokenUnit,
+                                               valueWidth: StatusItemLayout.stackedValueWidth(of: "69", fontSize: 13.5, weight: .bold),
+                                               height: 24, fontSize: 13.5, fontWeight: .bold)
         let large = StatusItemLayout(mode: .glyphValue, showsUnit: true, unit: StatusItemValue.compactTokenUnit,
-                                     valueWidth: StatusItemLayout.stackedValueWidth(of: "69", scale: 1.35), height: 24, scale: 1.35)
-        #expect(small.length < defaultScale.length)
-        #expect(defaultScale.length < large.length)
+                                     valueWidth: StatusItemLayout.stackedValueWidth(of: "69", fontSize: 15.0, weight: .bold),
+                                     height: 24, fontSize: 15.0, fontWeight: .bold)
+        #expect(small.length < tickTickDefault.length)
+        #expect(tickTickDefault.length < large.length)
+        #expect(tickTickDefault.resolvedGlyphDiameter == 15.5)
+        #expect(tickTickDefault.resolvedGlyphLineWidth == 2.25)
 
-        let lockedAtDefault = ["0", "6.4", "69", "128", "999"].map { text in
+        let lockedAtBold = ["0", "6.4", "69", "128", "999"].map { text in
             StatusItemLayout(mode: .glyphValue, showsUnit: true, unit: StatusItemValue.compactTokenUnit,
-                             valueWidth: StatusItemLayout.stackedValueWidth(of: text, scale: 1.2), height: 24, scale: 1.2).length
+                             valueWidth: StatusItemLayout.stackedValueWidth(of: text, fontSize: 13.5, weight: .bold),
+                             height: 24, fontSize: 13.5, fontWeight: .bold).length
         }
-        #expect(Set(lockedAtDefault).count == 1)
+        #expect(Set(lockedAtBold).count == 1)
     }
 }

@@ -26,7 +26,8 @@ struct MenuBarPreview: View {
                     mode: settings.barMode,
                     colored: settings.barColoredGlyph,
                     showsUnit: settings.barShowsUnit,
-                    scale: CGFloat(settings.barScale),
+                    fontSize: CGFloat(settings.barFontSize),
+                    fontWeight: settings.barFontWeight,
                     value: value,
                     heat: HeatPalette.heat(value: value, redline: settings.redline),
                     unit: StatusItemValue.compactTokenUnit,
@@ -48,7 +49,8 @@ struct MenuBarPreview: View {
             .animation(model.accessibility.reduceMotion ? nil : Motion.layout, value: settings.barMode)
             .animation(Motion.fade, value: settings.barShowsUnit)
             .animation(Motion.fade, value: settings.barColoredGlyph)
-            .animation(model.accessibility.reduceMotion ? nil : Motion.layout, value: settings.barScale)
+            .animation(model.accessibility.reduceMotion ? nil : Motion.layout, value: settings.barFontSize)
+            .animation(model.accessibility.reduceMotion ? nil : Motion.layout, value: settings.barFontWeight)
         }
         .frame(height: Self.height)
         .clipShape(shape)
@@ -95,15 +97,16 @@ private struct StatusItemSample: View {
     let mode: BarDisplayMode
     let colored: Bool
     let showsUnit: Bool
-    let scale: CGFloat
+    let fontSize: CGFloat
+    let fontWeight: BarFontWeight
     let value: Double
     let heat: Double
     let unit: String
     let dark: Bool
 
     var body: some View {
-        let glyphSize = StatusItemLayout.glyphDiameter(scale: scale)
-        let lineWidth = StatusItemLayout.glyphLineWidth(scale: scale)
+        let glyphSize = StatusItemLayout.glyphDiameter(fontSize: fontSize)
+        let lineWidth = StatusItemLayout.glyphLineWidth(weight: fontWeight)
         HStack(spacing: StatusItemLayout.glyphGap) {
             if mode.showsGlyph {
                 GaugeGlyph(
@@ -119,21 +122,21 @@ private struct StatusItemSample: View {
                 if showsUnit && unit == StatusItemValue.compactTokenUnit {
                     VStack(spacing: 1.5) {
                         Text(SpeedFormat.speed(value))
-                            .font(Font(StatusItemLayout.stackedValueFont(scale: scale) as CTFont))
+                            .font(Font(StatusItemLayout.stackedValueFont(fontSize: fontSize, weight: fontWeight) as CTFont))
                         Text(unit)
-                            .font(Font(StatusItemLayout.stackedUnitFont(scale: scale) as CTFont))
+                            .font(Font(StatusItemLayout.stackedUnitFont(fontSize: fontSize, weight: fontWeight) as CTFont))
                             .tracking(StatusItemLayout.stackedUnitKern)
                             .foregroundStyle(.secondary)
                     }
-                    .frame(minWidth: StatusItemLayout.minimumStackedTokenWidth(scale: scale))
+                    .frame(minWidth: StatusItemLayout.minimumStackedTokenWidth(fontSize: fontSize, weight: fontWeight))
                     .transition(.opacity)
                 } else {
                     HStack(alignment: .firstTextBaseline, spacing: StatusItemLayout.unitGap) {
                         Text(SpeedFormat.speed(value))
-                            .font(Font(StatusItemLayout.valueFont(scale: scale) as CTFont))
+                            .font(Font(StatusItemLayout.valueFont(fontSize: fontSize, weight: fontWeight) as CTFont))
                         if showsUnit {
                             Text(unit)
-                                .font(Font(StatusItemLayout.unitFont(scale: scale) as CTFont))
+                                .font(Font(StatusItemLayout.unitFont(fontSize: fontSize, weight: fontWeight) as CTFont))
                                 .foregroundStyle(.secondary)
                                 .transition(.opacity)
                         }

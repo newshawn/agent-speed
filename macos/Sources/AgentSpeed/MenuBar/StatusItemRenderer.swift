@@ -18,7 +18,7 @@ final class StatusItemRenderer {
     private var timer: Timer?
     private var lastState: StatusItemState?
     private var lastImageAt: TimeInterval = -.infinity
-    private var lastBarScale: Double?
+    private var lastTypography: (Double, BarFontWeight)?
 
     init(model: AppModel, item: NSStatusItem) {
         self.model = model
@@ -28,7 +28,7 @@ final class StatusItemRenderer {
             let gauge = self.model.gauge
             let settings = self.model.settings
             _ = (gauge.revision, gauge.tier, gauge.readoutValue)
-            _ = (settings.barMode, settings.barShowsUnit, settings.barColoredGlyph, settings.barScale, settings.effects)
+            _ = (settings.barMode, settings.barShowsUnit, settings.barColoredGlyph, settings.barFontSize, settings.barFontWeight, settings.effects)
             _ = (self.model.l10n.language, self.model.accessibility.increaseContrast, self.model.accessibility.reduceMotion)
             _ = settings.barSecondary
             if settings.liveUnit == .cost || settings.barSecondary {
@@ -90,18 +90,19 @@ final class StatusItemRenderer {
     /// The current state, with the value's room decided by the width governor.
     private func state(at time: TimeInterval) -> StatusItemState {
         let (text, unit) = StatusItemValue.current(model)
-        let scale = model.settings.barScale
-        if lastBarScale != nil && lastBarScale != scale {
+        let typography = (model.settings.barFontSize, model.settings.barFontWeight)
+        if let prev = lastTypography, prev != typography {
             widthGovernor = StatusItemWidthGovernor()
         }
-        lastBarScale = scale
-        let cgScale = CGFloat(scale)
+        lastTypography = typography
+        let fontSize = CGFloat(typography.0)
+        let fontWeight = typography.1
         let isStacked = model.settings.liveUnit == .tokens && model.settings.barShowsUnit
             && unit == StatusItemValue.compactTokenUnit
         let needed = isStacked
-            ? max(StatusItemLayout.minimumStackedTokenWidth(scale: cgScale),
-                  StatusItemLayout.stackedValueWidth(of: text, scale: cgScale))
-            : StatusItemLayout.valueWidth(of: text, scale: cgScale)
+            ? max(StatusItemLayout.minimumStackedTokenWidth(fontSize: fontSize, weight: fontWeight),
+                  StatusItemLayout.stackedValueWidth(of: text, fontSize: fontSize, weight: fontWeight))
+            : StatusItemLayout.valueWidth(of: text, fontSize: fontSize, weight: fontWeight)
         _ = widthGovernor.update(needed: needed, now: time)
         _ = secondaryGovernor.update(needed: StatusItemSecondary(model: model)?.numberWidth ?? 0, now: time)
         _ = intelligenceGovernor.update(needed: StatusItemIntelligence(model: model)?.cell ?? 0, now: time)
